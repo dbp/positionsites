@@ -6,3 +6,5 @@ site_key.txt
 .hsenv
 *.cfg
 *.log
+pg.sh
+pg_test.sh
