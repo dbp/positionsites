@@ -1,0 +1,42 @@
+Description:
+Created: 2014-01-13 19:11:57.934661 UTC
+Depends:
+Apply:
+  CREATE TABLE users (id integer NOT NULL REFERENCES snap_auth_user(uid) ON DELETE CASCADE,
+                      admin boolean NOT NULL DEFAULT false
+                     );
+
+  CREATE TABLE sites (id serial PRIMARY KEY,
+                      url text NOT NULL
+                     );
+
+  CREATE TABLE users_sites (user_id integer NOT NULL REFERENCES snap_auth_user(uid) ON DELETE CASCADE,
+                            site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE
+                           );
+
+  CREATE TABLE data (id serial PRIMARY KEY,
+                     site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+                     fields text
+                    );
+
+  CREATE TABLE items (id serial PRIMARY KEY,
+                     data_id integer NOT NULL REFERENCES data(id) ON DELETE CASCADE,
+                     site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+                     owner_id integer NOT NULL REFERENCES snap_auth_user(uid),
+                     fields text
+                    );
+
+  CREATE TABLE blobs (id serial PRIMARY KEY,
+                     name text NOT NULL,
+                     content text,
+                     admin_only boolean NOT NULL DEFAULT false
+                    );
+
+  CREATE TABLE pages (id serial PRIMARY KEY,
+                     site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+                     structured text,
+                     flat text
+                    );
+
+Revert:
+  DROP TABLE users; DROP TABLE sites; DROP TABLE users_sites; DROP TABLE data; DROP TABLE items; DROP TABLE blobs; DROP TABLE pages;

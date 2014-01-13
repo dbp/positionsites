@@ -1,0 +1,3 @@
+#!/bin/bash
+
+DBM_DATABASE="dbname='analyze_test' user='analyze_user' password='PASSWORD'" DBM_DATABASE_TYPE="postgresql" DBM_MIGRATION_STORE="migrations" moo $@
