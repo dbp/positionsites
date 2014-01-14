@@ -1,10 +1,11 @@
-{-# LANGUAGE OverloadedStrings, PackageImports  #-}
+{-# LANGUAGE OverloadedStrings, PackageImports, TupleSections  #-}
 
 module Handler.Site where
 
 import Control.Applicative
-import Data.Map (Map)
+import Data.Map (Map, assocs, fromList)
 import Data.Monoid
+import Data.Maybe
 import Snap.Core
 import Snap.Snaplet
 import Heist
@@ -14,13 +15,14 @@ import Snap.Snaplet.Heist
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Text.XmlHtml
-import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString as B
 import Text.Digestive
-import Text.Digestive.Snap
+import Text.Digestive.Snap hiding (method)
 import Text.Digestive.Heist
 
 import Application
@@ -64,7 +66,7 @@ manageSiteHandler = do
 
 showSiteHandler :: Site -> AppHandler ()
 showSiteHandler site = do
-  ds <- getData site
+  ds <- getSiteData site
   renderWithSplices "site/index" $ do
     "id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
@@ -87,9 +89,55 @@ newDataHandler site = do
 -- site's domain.
 
 siteHandler :: Site -> AppHandler ()
-siteHandler site = do
-  pages <- getPages site
-  routePages site pages
+siteHandler site =
+  route [("/api", siteApiHandler site)
+        ,("", do pages <- getPages site
+                 routePages site pages)]
+
+siteApiHandler :: Site -> AppHandler ()
+siteApiHandler site = route [("/new/:id", apiNewItem site)]
+
+
+getDataFields :: [(Text, FieldSpec)] -> AppHandler (Either Text [(Text, FieldData)])
+getDataFields [] = return $ Right []
+getDataFields (x:xs) = do
+  res <- getDataFields xs
+  case res of
+    Left err -> return $ Left err
+    Right flds -> do
+      p <- getParam (encodeUtf8 $ fst x)
+      case p of
+        Nothing -> return $ Left $ T.concat ["Param not found: ", fst x]
+        Just param ->
+          case snd x of
+            StringFieldSpec -> return $ Right $ (fst x, StringFieldData $ decodeUtf8 param) : flds
+            NumberFieldSpec ->
+              case readSafe (T.unpack $ decodeUtf8 param) of
+                Just n -> return $ Right $ (fst x, NumberFieldData n) : flds
+                Nothing -> return $ Left $ T.concat ["Param '", fst x, "' should have been a number: "
+                                                    , decodeUtf8 param]
+
+apiNewItem :: Site -> AppHandler ()
+apiNewItem site = do
+  mid <- getParam "id"
+  case fmap B8.unpack mid >>= readSafe of
+    Nothing -> pass
+    Just data_id -> do
+      d <- getDataById site data_id
+      case d of
+        Nothing -> pass
+        Just dat -> do
+          (method POST $ do
+            res <- getDataFields (kvs $ dataFields dat)
+            case res of
+              Left err -> renderWithSplices "api/error" ("error" ## textSplice err)
+              Right fields -> do
+                newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList $ fields))
+                return ())
+          <|>
+          (method GET $ do
+              let splices = apiDataSplices dat
+              renderWithSplices "api/data/new" splices)
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
@@ -99,7 +147,7 @@ routePages site pgs =
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
-  ds <- getData s
+  ds <- getSiteData s
   let splices = foldr (<>) mempty $ map dataSplices ds
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of

@@ -37,7 +37,7 @@ instance FromRow Data where
   fromRow = Data <$> field <*> field <*> field <*> field
 
 data FieldSpec = StringFieldSpec | NumberFieldSpec
-                 deriving (Show, Eq, Typeable)
+                 deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldSpec)
 
 instance FromField (Map Text FieldSpec) where
@@ -54,8 +54,8 @@ fieldToBs NumberFieldSpec = "number"
 instance ToField [FieldSpec] where
   toField flds = Plain (fromByteString $ B8.intercalate "," $ map fieldToBs flds)
 
-data FieldData = FieldDataString Text | FieldDataNumber Int
-                 deriving (Show, Eq, Typeable)
+data FieldData = StringFieldData Text | NumberFieldData Int
+                 deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
 
 data Item = Item { itemId :: Int
@@ -74,17 +74,23 @@ instance FromField (Map Text FieldData) where
   fromField f (Just fs) =
     case decode (fromStrict fs) of
       Just m -> pure m
-      Nothing -> returnError ConversionFailed f ("Could not decode json: " ++ (B8.unpack fs))
+      Nothing -> returnError ConversionFailed f ("Could not decode json: " ++ B8.unpack fs)
 
 instance ToField (Map Text FieldData) where
   toField flds = Plain (fromLazyByteString $ encode flds)
 
 -- Lookup functions
-getData :: Site -> AppHandler [Data]
-getData s = query "select id, site_id, name, fields from data where site_id = ?" (Only $ siteId s)
+getSiteData :: Site -> AppHandler [Data]
+getSiteData s = query "select id, site_id, name, fields from data where site_id = ?" (Only $ siteId s)
+
+getDataById :: Site -> Int -> AppHandler (Maybe Data)
+getDataById s i = singleQuery "select id, site_id, name, fields from data where site_id = ? and id = ?" (siteId s, i)
 
 getItems :: Data -> AppHandler [Item]
 getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ?" (dataId d, dataSiteId d)
 
 newData :: Data -> AppHandler (Maybe Int)
 newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
+
+newItem :: Item -> AppHandler (Maybe Int)
+newItem i = idQuery "insert into items (data_id, site_id, owner_id, fields) values (?,?,?,?) returning id" (itemDataId i, itemSiteId i, itemOwnerId i, encode (itemFields i))
