@@ -8,3 +8,13 @@
   <p><fields/></p>
   <hr/>
 </data>
+
+
+<h3>Pages</h3>
+<a href="/site/${id}/page/new">New Page</a><br/>
+<hr/>
+<pages>
+  <a href="http://${domain}:8000${flat}"><flat/></a>
+  <p><body/></p>
+  <hr/>
+</pages>

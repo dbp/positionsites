@@ -30,6 +30,7 @@ import State.Site
 import State.Page
 import State.Data
 import Splice.Data
+import Splice.Page
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -62,15 +63,18 @@ manageSiteHandler = do
         Nothing -> pass
         Just site ->
           route [("", ifTop $ showSiteHandler site)
-                ,("/data/new", newDataHandler site)]
+                ,("/data/new", newDataHandler site)
+                ,("/page/new", newPageHandler site)]
 
 showSiteHandler :: Site -> AppHandler ()
 showSiteHandler site = do
   ds <- getSiteData site
+  pgs <- getSitePages site
   renderWithSplices "site/index" $ do
     "id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
     "data" ## manageDataSplice ds
+    "pages" ## managePagesSplice pgs
 
 newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
 newDataForm = (,) <$> "name"   .: nonEmptyTextForm
@@ -85,13 +89,27 @@ newDataHandler site = do
       newData (Data (-1) (siteId site) name fields)
       redirect (sitePath site)
 
+newPageForm :: Form Text AppHandler (Text, Text, Text)
+newPageForm = (,,) <$> "flat" .: nonEmptyTextForm
+                   <*> "structured" .: nonEmptyTextForm
+                   <*> "body" .: text Nothing
+
+newPageHandler :: Site -> AppHandler ()
+newPageHandler site = do
+  r <- runForm "new-page" newPageForm
+  case r of
+    (v, Nothing) -> renderWithSplices "page/new" (digestiveSplices v)
+    (_, Just (flat, structured, body)) -> do
+      newPage (Page (-1) (siteId site) (encodeUtf8 flat) structured body)
+      redirect (sitePath site)
+
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
 
 siteHandler :: Site -> AppHandler ()
 siteHandler site =
   route [("/api", siteApiHandler site)
-        ,("", do pages <- getPages site
+        ,("", do pages <- getSitePages site
                  routePages site pages)]
 
 siteApiHandler :: Site -> AppHandler ()

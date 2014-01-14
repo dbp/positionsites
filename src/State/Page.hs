@@ -8,6 +8,7 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Application
 import State.Site
+import Helpers.State
 
 data Page = Page { pageId :: Int
                  , pageSiteId :: Int
@@ -20,5 +21,8 @@ instance FromRow Page where
   fromRow = Page <$> field <*> field <*> field
                  <*> field <*> field
 
-getPages :: Site -> AppHandler [Page]
-getPages site = query "select id, site_id, flat, structured, body from pages where site_id = ?" (Only (siteId site))
+getSitePages :: Site -> AppHandler [Page]
+getSitePages site = query "select id, site_id, flat, structured, body from pages where site_id = ?" (Only (siteId site))
+
+newPage :: Page -> AppHandler (Maybe Int)
+newPage (Page _ si fl st bd) = idQuery "insert into pages (site_id, flat, structured, body) values (?,?,?,?) returning id" (si, fl, st, bd)
