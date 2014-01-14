@@ -64,14 +64,15 @@ manageSiteHandler = do
         Just site ->
           route [("", ifTop $ showSiteHandler site)
                 ,("/data/new", newDataHandler site)
-                ,("/page/new", newPageHandler site)]
+                ,("/page/new", newPageHandler site)
+                ,("/page/edit/:id", editPageHandler site)]
 
 showSiteHandler :: Site -> AppHandler ()
 showSiteHandler site = do
   ds <- getSiteData site
   pgs <- getSitePages site
   renderWithSplices "site/index" $ do
-    "id" ## textSplice (tshow (siteId site))
+    "site_id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
@@ -89,19 +90,40 @@ newDataHandler site = do
       newData (Data (-1) (siteId site) name fields)
       redirect (sitePath site)
 
-newPageForm :: Form Text AppHandler (Text, Text, Text)
-newPageForm = (,,) <$> "flat" .: nonEmptyTextForm
-                   <*> "structured" .: nonEmptyTextForm
-                   <*> "body" .: text Nothing
+pageForm :: Maybe (Text,Text,Text) -> Form Text AppHandler (Text, Text, Text)
+pageForm p = (,,) <$> "flat" .: nonEmpty (text $ fmap fst3 p)
+                   <*> "structured" .: nonEmpty (text $ fmap snd3 p)
+                   <*> "body" .: nonEmpty (text $ fmap trd3 p)
 
 newPageHandler :: Site -> AppHandler ()
 newPageHandler site = do
-  r <- runForm "new-page" newPageForm
+  r <- runForm "new-page" $ pageForm Nothing
   case r of
     (v, Nothing) -> renderWithSplices "page/new" (digestiveSplices v)
     (_, Just (flat, structured, body)) -> do
       newPage (Page (-1) (siteId site) (encodeUtf8 flat) structured body)
       redirect (sitePath site)
+
+editPageHandler :: Site -> AppHandler ()
+editPageHandler site = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just id' -> do
+      mp <- getPageById id' site
+      case mp of
+        Nothing -> pass
+        Just page -> do
+          r <- runForm "edit-page" $ pageForm $ Just ( decodeUtf8 $ pageFlat page
+                                                     , pageStructured page
+                                                     , pageBody page)
+          case r of
+            (v, Nothing) -> renderWithSplices "page/edit" (digestiveSplices v)
+            (_, Just (flat, structured, body)) -> do
+              updatePage (page { pageFlat = encodeUtf8 flat
+                               , pageStructured = structured
+                               , pageBody = body})
+              redirect (sitePath site)
 
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
@@ -138,7 +160,7 @@ getDataFields (x:xs) = do
 apiNewItem :: Site -> AppHandler ()
 apiNewItem site = do
   mid <- getParam "id"
-  case fmap B8.unpack mid >>= readSafe of
+  case bsId mid of
     Nothing -> pass
     Just data_id -> do
       d <- getDataById site data_id

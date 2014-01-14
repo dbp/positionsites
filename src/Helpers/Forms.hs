@@ -16,14 +16,16 @@ import Helpers.Text
 
 emailForm :: Maybe Text -> Form Text AppHandler Text
 emailForm email = check "Not a valid email address." (\e -> T.isInfixOf "@" e) $
-                  check "Must not be blank" tNotNull
-                  (text email)
+                  nonEmpty (text email)
 
 passwordForm :: Form Text AppHandler Text
 passwordForm = nonEmptyTextForm
 
+nonEmpty :: Form Text AppHandler Text -> Form Text AppHandler Text
+nonEmpty = check "Must not be blank" tNotNull
+
 nonEmptyTextForm :: Form Text AppHandler Text
-nonEmptyTextForm = check "Must not be blank" tNotNull (text Nothing)
+nonEmptyTextForm = nonEmpty (text Nothing)
 
 jsonMapForm :: FromJSON a => Form Text AppHandler (Map Text a)
 jsonMapForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict e) of
