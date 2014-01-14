@@ -2,7 +2,10 @@
 
 module Splice.Data where
 
+import Data.Aeson
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Data.ByteString.Lazy (toStrict)
 import Data.Monoid
 import qualified Data.Map as M
 import "mtl" Control.Monad.Trans (lift)
@@ -13,6 +16,14 @@ import Application
 import State.Data
 import Helpers.Text
 
+manageDataSplice :: [Data] -> Splice AppHandler
+manageDataSplice = mapSplices (runChildrenWith . manageDatumSplices)
+
+manageDatumSplices :: Data -> Splices (Splice AppHandler)
+manageDatumSplices d = do
+  "id" ## textSplice (tshow (dataId d))
+  "name" ## textSplice (dataName d)
+  "fields" ## textSplice (T.decodeUtf8 $ toStrict $ encode (dataFields d))
 
 dataSplices :: Data -> Splices (Splice AppHandler)
 dataSplices d = (T.append (dataName d) "-all")

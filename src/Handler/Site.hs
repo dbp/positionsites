@@ -2,6 +2,8 @@
 
 module Handler.Site where
 
+import Control.Applicative
+import Data.Map (Map)
 import Data.Monoid
 import Snap.Core
 import Snap.Snaplet
@@ -28,6 +30,7 @@ import State.Data
 import Splice.Data
 import Helpers.Forms
 import Helpers.Misc
+import Helpers.Text
 
 sitePath :: Site -> ByteString
 sitePath (Site id' _) = B.append "/site/" (B8.pack (show id'))
@@ -56,8 +59,29 @@ manageSiteHandler = do
       case msite of
         Nothing -> pass
         Just site ->
-          renderWithSplices "site/index" ("domain" ## textSplice (siteUrl site))
+          route [("", ifTop $ showSiteHandler site)
+                ,("/data/new", newDataHandler site)]
 
+showSiteHandler :: Site -> AppHandler ()
+showSiteHandler site = do
+  ds <- getData site
+  renderWithSplices "site/index" $ do
+    "id" ## textSplice (tshow (siteId site))
+    "domain" ## textSplice (siteUrl site)
+    "data" ## manageDataSplice ds
+
+newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
+newDataForm = (,) <$> "name"   .: nonEmptyTextForm
+                  <*> "fields" .: jsonMapForm
+
+newDataHandler :: Site -> AppHandler ()
+newDataHandler site = do
+  r <- runForm "new-data" newDataForm
+  case r of
+    (v, Nothing) -> renderWithSplices "data/new" (digestiveSplices v)
+    (_, Just (name, fields)) -> do
+      newData (Data (-1) (siteId site) name fields)
+      redirect (sitePath site)
 
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.

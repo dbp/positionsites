@@ -21,8 +21,10 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Lazy (fromStrict)
+
 import Application
 import State.Site
+import Helpers.State
 
 data Data = Data { dataId :: Int
                  , dataSiteId :: Int
@@ -83,3 +85,6 @@ getData s = query "select id, site_id, name, fields from data where site_id = ?"
 
 getItems :: Data -> AppHandler [Item]
 getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ?" (dataId d, dataSiteId d)
+
+newData :: Data -> AppHandler (Maybe Int)
+newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
