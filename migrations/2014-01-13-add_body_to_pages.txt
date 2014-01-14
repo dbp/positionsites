@@ -1,0 +1,8 @@
+Description: (Description here.)
+Created: 2014-01-13 23:38:13.381195 UTC
+Depends: 2014-01-13-base_schema
+Apply:
+  ALTER TABLE pages ADD COLUMN body text;
+
+Revert:
+  ALTER TABLE pages DROP COLUMN body;
