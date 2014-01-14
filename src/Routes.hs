@@ -21,7 +21,6 @@ routes = [("", domainHandler)]
 domainHandler :: AppHandler ()
 domainHandler = do
   name <- fmap rqServerName getRequest
-  liftIO $ putStrLn $ show name
   case name of
    "hosting" -> route managementRoutes
    _ -> do
@@ -38,4 +37,5 @@ managementRoutes = [("/login", loginHandler)
                    ,("/signup", signupHandler)
                    ,("/", ifTop indexHandler)
                    ,("/new", newSiteHandler)
+                   ,("/site/:id", manageSiteHandler)
                    ]

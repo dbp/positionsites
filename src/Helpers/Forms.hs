@@ -15,4 +15,7 @@ emailForm email = check "Not a valid email address." (\e -> T.isInfixOf "@" e) $
                   (text email)
 
 passwordForm :: Form Text AppHandler Text
-passwordForm = check "Must not be blank" tNotNull (text Nothing)
+passwordForm = nonEmptyTextForm
+
+nonEmptyTextForm :: Form Text AppHandler Text
+nonEmptyTextForm = check "Must not be blank" tNotNull (text Nothing)
