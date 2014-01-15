@@ -38,8 +38,8 @@ apiDataSplices d = do "fields" ## mapSplices (runChildrenWith . fieldsSplice)
 
 dataSplices :: Data -> Splices (Splice AppHandler)
 dataSplices d = do
-  T.append (dataName d) "-all" ## renderAllItems d
-  T.append (dataName d) "-new" ## newItemSplice d
+  T.append "all-" (dataName d) ## renderAllItems d
+  T.append "new-" (dataName d) ## newItemSplice d
 
 renderAllItems :: Data -> Splice AppHandler
 renderAllItems d = do
@@ -48,8 +48,9 @@ renderAllItems d = do
 
 itemSplices :: Data -> Item -> Splices (Splice AppHandler)
 itemSplices d i = mconcat $
-  map (\(name, _spec) ->
-          (T.concat [dataName d, "-", name]) ## fldSplice (M.lookup name (itemFields i)))
+  map (\(name, _spec) -> do
+          T.concat [dataName d, "-", name] ## fldSplice (M.lookup name (itemFields i))
+          T.concat ["delete-", dataName d] ## deleteSplice d i)
       (M.assocs $ dataFields d)
 
 fldSplice :: Maybe FieldData -> Splice AppHandler
@@ -57,9 +58,16 @@ fldSplice Nothing = textSplice ""
 fldSplice (Just (StringFieldData s)) = textSplice s
 fldSplice (Just (NumberFieldData n)) = textSplice (tshow n)
 
-
 newItemSplice :: Data -> Splice AppHandler
 newItemSplice d = return [X.Element "a" [("href", T.concat ["/api/new/", tshow (dataId d)])
                                         ,("data-box", "1")
                                         ,("data-refresh", "page")]
                                         [X.TextNode $ T.concat ["New ", dataName d]]]
+
+deleteSplice :: Data -> Item -> Splice AppHandler
+deleteSplice d i = do
+  n <- getParamNode
+  return [X.Element "a" [("href", T.concat ["/api/delete/", tshow (itemId i)])
+                        ,("data-box", "1")
+                        ,("data-refresh", "page")]
+                        (X.childNodes n)]

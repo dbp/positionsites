@@ -92,5 +92,11 @@ getItems d = query "select id, data_id, site_id, owner_id, fields from items whe
 newData :: Data -> AppHandler (Maybe Int)
 newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
 
+getItemById :: Site -> Int -> AppHandler (Maybe Item)
+getItemById site i = singleQuery "select id, data_id, site_id, owner_id, fields from items where id = ? and site_id = ?" (i, siteId site)
+
 newItem :: Item -> AppHandler (Maybe Int)
 newItem i = idQuery "insert into items (data_id, site_id, owner_id, fields) values (?,?,?,?) returning id" (itemDataId i, itemSiteId i, itemOwnerId i, encode (itemFields i))
+
+deleteItem :: Item -> AppHandler ()
+deleteItem item = void (execute "delete from items where id = ? and site_id = ?" (itemId item, itemSiteId item))

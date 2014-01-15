@@ -14,7 +14,7 @@ import Heist.Interpreted (textSplice, addTemplate
 import Snap.Snaplet.Heist
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
-import Text.XmlHtml
+import Text.XmlHtml hiding (render)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -135,7 +135,8 @@ siteHandler site =
                  routePages site pages)]
 
 siteApiHandler :: Site -> AppHandler ()
-siteApiHandler site = route [("/new/:id", apiNewItem site)]
+siteApiHandler site = route [("/new/:id", apiNewItem site)
+                            ,("/delete/:id", apiDeleteItem site)]
 
 
 getDataFields :: [(Text, FieldSpec)] -> AppHandler (Either Text [(Text, FieldData)])
@@ -178,6 +179,23 @@ apiNewItem site = do
           (method GET $ do
               let splices = apiDataSplices dat
               renderWithSplices "api/data/new" splices)
+
+
+apiDeleteItem :: Site -> AppHandler ()
+apiDeleteItem site = do
+    mid <- getParam "id"
+    case bsId mid of
+      Nothing -> pass
+      Just item_id -> do
+        mit <- getItemById site item_id
+        case mit of
+          Nothing -> pass
+          Just item ->
+            (method GET $ render "api/data/delete")
+            <|>
+            (method POST $ do
+              deleteItem item
+              return ())
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
