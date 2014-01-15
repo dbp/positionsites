@@ -17,6 +17,7 @@ import Database.PostgreSQL.Simple.ToField hiding (Field)
 import Database.PostgreSQL.Simple.Ok
 import Snap.Snaplet.PostgresqlSimple
 import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -25,6 +26,7 @@ import Data.ByteString.Lazy (fromStrict)
 import Application
 import State.Site
 import Helpers.State
+import Helpers.Misc
 
 data Data = Data { dataId :: Int
                  , dataSiteId :: Int
@@ -53,6 +55,11 @@ fieldToBs NumberFieldSpec = "number"
 
 instance ToField [FieldSpec] where
   toField flds = Plain (fromByteString $ B8.intercalate "," $ map fieldToBs flds)
+
+
+parseSpec :: FieldSpec -> ByteString -> Maybe FieldData
+parseSpec StringFieldSpec bs = Just $ StringFieldData (decodeUtf8 bs)
+parseSpec NumberFieldSpec bs = fmap NumberFieldData (readSafe (B8.unpack bs))
 
 data FieldData = StringFieldData Text | NumberFieldData Int
                  deriving (Show, Eq, Typeable, Ord)
@@ -87,7 +94,7 @@ getDataById :: Site -> Int -> AppHandler (Maybe Data)
 getDataById s i = singleQuery "select id, site_id, name, fields from data where site_id = ? and id = ?" (siteId s, i)
 
 getItems :: Data -> AppHandler [Item]
-getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ?" (dataId d, dataSiteId d)
+getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ? order by id desc" (dataId d, dataSiteId d)
 
 newData :: Data -> AppHandler (Maybe Int)
 newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
@@ -100,3 +107,6 @@ newItem i = idQuery "insert into items (data_id, site_id, owner_id, fields) valu
 
 deleteItem :: Item -> AppHandler ()
 deleteItem item = void (execute "delete from items where id = ? and site_id = ?" (itemId item, itemSiteId item))
+
+updateItem :: Item -> AppHandler ()
+updateItem (Item i di si oi fs) = void (execute "update items set data_id = ?, site_id = ?, owner_id = ?, fields = ? where id = ?" (di, si, oi, encode fs, i))

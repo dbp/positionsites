@@ -2,8 +2,9 @@
 
 module Handler.Site where
 
+import Prelude hiding (lookup)
 import Control.Applicative
-import Data.Map (Map, assocs, fromList)
+import Data.Map (Map, assocs, fromList, lookup, insert, (!))
 import Data.Monoid
 import Data.Maybe
 import Snap.Core
@@ -136,7 +137,8 @@ siteHandler site =
 
 siteApiHandler :: Site -> AppHandler ()
 siteApiHandler site = route [("/new/:id", apiNewItem site)
-                            ,("/delete/:id", apiDeleteItem site)]
+                            ,("/delete/:id", apiDeleteItem site)
+                            ,("/set/:id/:field", apiSetFieldItem site)]
 
 
 getDataFields :: [(Text, FieldSpec)] -> AppHandler (Either Text [(Text, FieldData)])
@@ -196,6 +198,41 @@ apiDeleteItem site = do
             (method POST $ do
               deleteItem item
               return ())
+
+apiSetFieldItem :: Site -> AppHandler ()
+apiSetFieldItem site = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just item_id -> do
+      mit <- getItemById site item_id
+      case mit of
+        Nothing -> pass
+        Just item -> do
+          d <- getDataById site (itemDataId item)
+          case d of
+            Nothing -> pass
+            Just dat -> do
+              mfld <- getParam "field"
+              case fmap decodeUtf8 mfld of
+                Nothing -> pass
+                Just field ->
+                  case lookup field (dataFields dat) of
+                    Nothing -> pass
+                    Just spec ->
+                      (method GET $ renderWithSplices "api/data/set" (apiDataFieldSplice (itemFields item ! field) field))
+                      <|>
+                      (method POST $ do
+                        mv <- getParam "value"
+                        case mv of
+                          Nothing -> pass
+                          Just v ->
+                            case parseSpec spec v of
+                              Nothing -> renderWithSplices "api/error"
+                                         ("error" ## textSplice "Not valid data")
+                              Just val -> do
+                                updateItem $ item { itemFields = insert field val (itemFields item)}
+                                return ())
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =

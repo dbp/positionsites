@@ -3,6 +3,7 @@
 module Splice.Data where
 
 import Data.Aeson
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.ByteString.Lazy (toStrict)
@@ -31,10 +32,19 @@ apiDataSplices :: Data -> Splices (Splice AppHandler)
 apiDataSplices d = do "fields" ## mapSplices (runChildrenWith . fieldsSplice)
                                              (kvs $ dataFields d)
                       "id" ## textSplice (tshow (dataId d))
- where fieldsSplice (n, StringFieldSpec) = do
+ where fieldsSplice (n, StringFieldSpec) =
          "name" ## textSplice n
-       fieldsSplice (n, NumberFieldSpec) = do
+       fieldsSplice (n, NumberFieldSpec) =
          "name" ## textSplice n
+
+apiDataFieldSplice :: FieldData -> Text -> Splices (Splice AppHandler)
+apiDataFieldSplice (StringFieldData s) name = do
+  "name" ## textSplice name
+  "value" ## textSplice s
+apiDataFieldSplice (NumberFieldData n) name = do
+  "name" ## textSplice name
+  "value" ## textSplice (tshow n)
+
 
 dataSplices :: Data -> Splices (Splice AppHandler)
 dataSplices d = do
@@ -47,11 +57,13 @@ renderAllItems d = do
   mapSplices (runChildrenWith . itemSplices d) items
 
 itemSplices :: Data -> Item -> Splices (Splice AppHandler)
-itemSplices d i = mconcat $
-  map (\(name, _spec) -> do
-          T.concat [dataName d, "-", name] ## fldSplice (M.lookup name (itemFields i))
-          T.concat ["delete-", dataName d] ## deleteSplice d i)
-      (M.assocs $ dataFields d)
+itemSplices d i = (T.concat ["delete-", dataName d] ## deleteSplice d i)
+                  <>
+    (mconcat $
+     map (\(name, _spec) -> do
+             T.concat [dataName d, "-", name] ## fldSplice (M.lookup name (itemFields i))
+             T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
+         (M.assocs $ dataFields d))
 
 fldSplice :: Maybe FieldData -> Splice AppHandler
 fldSplice Nothing = textSplice ""
@@ -59,15 +71,25 @@ fldSplice (Just (StringFieldData s)) = textSplice s
 fldSplice (Just (NumberFieldData n)) = textSplice (tshow n)
 
 newItemSplice :: Data -> Splice AppHandler
-newItemSplice d = return [X.Element "a" [("href", T.concat ["/api/new/", tshow (dataId d)])
-                                        ,("data-box", "1")
-                                        ,("data-refresh", "page")]
-                                        [X.TextNode $ T.concat ["New ", dataName d]]]
+newItemSplice d = do
+  n <- getParamNode
+  return [X.Element "a" [("href", T.concat ["/api/new/", tshow (dataId d)])
+                             ,("data-box", "1")
+                             ,("data-refresh", "page")]
+                             (X.childNodes n)]
 
 deleteSplice :: Data -> Item -> Splice AppHandler
 deleteSplice d i = do
   n <- getParamNode
   return [X.Element "a" [("href", T.concat ["/api/delete/", tshow (itemId i)])
-                        ,("data-box", "1")
-                        ,("data-refresh", "page")]
-                        (X.childNodes n)]
+                         ,("data-box", "1")
+                         ,("data-refresh", "page")]
+                         (X.childNodes n)]
+
+setFieldSplice :: Item -> Text -> Splice AppHandler
+setFieldSplice i nm = do
+  n <- getParamNode
+  return [X.Element "a" [("href", T.concat ["/api/set/", tshow (itemId i), "/", nm])
+                         ,("data-box", "1")
+                         ,("data-refresh", "page")]
+                         (X.childNodes n)]
