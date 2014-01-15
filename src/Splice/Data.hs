@@ -10,6 +10,7 @@ import Data.Monoid
 import qualified Data.Map as M
 import "mtl" Control.Monad.Trans (lift)
 import Snap.Snaplet.Heist
+import qualified Text.XmlHtml as X
 import Heist
 import Heist.Interpreted
 import Application
@@ -27,16 +28,18 @@ manageDatumSplices d = do
   "fields" ## textSplice (T.decodeUtf8 $ toStrict $ encode (dataFields d))
 
 apiDataSplices :: Data -> Splices (Splice AppHandler)
-apiDataSplices d = "fields" ## mapSplices (runChildrenWith . fieldsSplice)
-                                          (kvs $ dataFields d)
+apiDataSplices d = do "fields" ## mapSplices (runChildrenWith . fieldsSplice)
+                                             (kvs $ dataFields d)
+                      "id" ## textSplice (tshow (dataId d))
  where fieldsSplice (n, StringFieldSpec) = do
          "name" ## textSplice n
        fieldsSplice (n, NumberFieldSpec) = do
          "name" ## textSplice n
 
 dataSplices :: Data -> Splices (Splice AppHandler)
-dataSplices d = (T.append (dataName d) "-all")
-                ## (renderAllItems d)
+dataSplices d = do
+  T.append (dataName d) "-all" ## renderAllItems d
+  T.append (dataName d) "-new" ## newItemSplice d
 
 renderAllItems :: Data -> Splice AppHandler
 renderAllItems d = do
@@ -46,10 +49,17 @@ renderAllItems d = do
 itemSplices :: Data -> Item -> Splices (Splice AppHandler)
 itemSplices d i = mconcat $
   map (\(name, _spec) ->
-          name ## fldSplice (M.lookup name (itemFields i)))
+          (T.concat [dataName d, "-", name]) ## fldSplice (M.lookup name (itemFields i)))
       (M.assocs $ dataFields d)
 
 fldSplice :: Maybe FieldData -> Splice AppHandler
 fldSplice Nothing = textSplice ""
 fldSplice (Just (StringFieldData s)) = textSplice s
 fldSplice (Just (NumberFieldData n)) = textSplice (tshow n)
+
+
+newItemSplice :: Data -> Splice AppHandler
+newItemSplice d = return [X.Element "a" [("href", T.concat ["/api/new/", tshow (dataId d)])
+                                        ,("data-box", "1")
+                                        ,("data-refresh", "page")]
+                                        [X.TextNode $ T.concat ["New ", dataName d]]]

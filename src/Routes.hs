@@ -7,6 +7,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.ByteString (ByteString)
 import Snap.Snaplet
 import Snap.Core
+import Snap.Util.FileServe (serveDirectory)
 
 import Application
 import Handler.Auth
@@ -16,7 +17,8 @@ import Handler.Index
 import State.Site
 
 routes :: [(ByteString, AppHandler ())]
-routes = [("", domainHandler)]
+routes = [("/static", serveDirectory "static")
+         ,("", domainHandler)]
 
 domainHandler :: AppHandler ()
 domainHandler = do

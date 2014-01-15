@@ -172,7 +172,7 @@ apiNewItem site = do
             case res of
               Left err -> renderWithSplices "api/error" ("error" ## textSplice err)
               Right fields -> do
-                newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList $ fields))
+                newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList fields))
                 return ())
           <|>
           (method GET $ do
@@ -188,15 +188,18 @@ routePages site pgs =
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   ds <- getSiteData s
-  let splices = foldr (<>) mempty $ map dataSplices ds
+  let splices = mconcat $ map dataSplices ds
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
     Right html -> do
       st <- fmap (either (error.show) id) $
-        liftIO $ runEitherT $ initHeist mempty
-      let newst = addTemplate "page" (docContent html) Nothing st
-      let newst' = bindSplices splices newst
+        liftIO $ runEitherT $ initHeist $ mempty { hcTemplateLocations =
+                                                   [loadTemplates "snaplets/heist/templates/sites"]
+                                                 }
+      let newst = addTemplate "page" [Element "apply" [("template", "site")] (docContent html)]
+                  Nothing st
+      let newst' = bindSplices (splices <> defaultLoadTimeSplices) newst
       res <- renderTemplate newst' "page"
       case res of
         Nothing -> error "Could not render template"

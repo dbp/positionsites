@@ -1,0 +1,31 @@
+.box {
+    position: absolute;
+    top: 20%;
+    border: 30px solid rgba(0,0,0,0.8);
+    background-color: rgba(0,0,0,0.8);
+    border-radius: 15px;
+    margin: 0 auto;
+}
+
+.box .inner {
+    border: 10px solid #fff;
+    background-color: #fff;
+    border-radius: 10px;
+}
+
+.box .close-container {
+    position: relative;
+}
+
+.box .close {
+    position: absolute;
+    right: -23px;
+    top: -23px;
+    width: 20px;
+    height: 20px;
+    background-image: url("/static/close.png");
+}
+
+.box .close:hover {
+    cursor: pointer;
+}
