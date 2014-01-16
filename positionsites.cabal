@@ -37,6 +37,7 @@ Executable positionsites
     postgresql-simple,
     snaplet-postgresql-simple,
     aeson,
+    vector,
     blaze-builder,
     containers,
     either,

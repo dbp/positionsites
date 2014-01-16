@@ -8,6 +8,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.ByteString.Lazy (toStrict)
 import Data.Monoid
+import Data.Maybe
 import qualified Data.Map as M
 import "mtl" Control.Monad.Trans (lift)
 import Snap.Snaplet.Heist
@@ -32,18 +33,29 @@ apiDataSplices :: Data -> Splices (Splice AppHandler)
 apiDataSplices d = do "fields" ## mapSplices (runChildrenWith . fieldsSplice)
                                              (kvs $ dataFields d)
                       "id" ## textSplice (tshow (dataId d))
- where fieldsSplice (n, StringFieldSpec) =
-         "name" ## textSplice n
-       fieldsSplice (n, NumberFieldSpec) =
-         "name" ## textSplice n
+ where fieldsSplice (n, StringFieldSpec) = do
+         "field-name" ## textSplice n
+         "field-input" ## inputTextSplice n Nothing
+       fieldsSplice (n, NumberFieldSpec) = do
+         "field-name" ## textSplice n
+         "field-input" ## inputTextSplice n Nothing
+       fieldsSplice (n, ListFieldSpec et) = do
+         "field-name" ## textSplice n
+         "field-input" ## inputNullSplice n
 
 apiDataFieldSplice :: FieldData -> Text -> Splices (Splice AppHandler)
 apiDataFieldSplice (StringFieldData s) name = do
-  "name" ## textSplice name
-  "value" ## textSplice s
+  "field-name" ## textSplice name
+  "field-input" ## inputTextSplice "value" (Just s)
 apiDataFieldSplice (NumberFieldData n) name = do
-  "name" ## textSplice name
-  "value" ## textSplice (tshow n)
+  "field-name" ## textSplice name
+  "field-input" ## inputTextSplice "value" (Just (tshow n))
+
+inputTextSplice :: Text -> Maybe Text -> Splice AppHandler
+inputTextSplice n mt = return [X.Element "input" [("type", "text"), ("name", n), ("value", fromMaybe "" mt)] []]
+
+inputNullSplice :: Text -> Splice AppHandler
+inputNullSplice n = return [X.Element "input" [("type", "text"), ("disabled", "1"), ("value", "[set later]")] [], X.Element "input" [("type", "hidden"), ("name", n), ("value", "[]")] []]
 
 
 dataSplices :: Data -> Splices (Splice AppHandler)
@@ -69,6 +81,9 @@ fldSplice :: Maybe FieldData -> Splice AppHandler
 fldSplice Nothing = textSplice ""
 fldSplice (Just (StringFieldData s)) = textSplice s
 fldSplice (Just (NumberFieldData n)) = textSplice (tshow n)
+fldSplice (Just (ListFieldData ls)) = mapSplices (runChildrenWith .
+                                                  (\f -> "element" ## fldSplice f) .
+                                                  Just) ls
 
 newItemSplice :: Data -> Splice AppHandler
 newItemSplice d = do

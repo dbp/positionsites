@@ -3,7 +3,7 @@
 <form method="post">
   <table>
     <fields>
-      <tr><td><name/></td><td><input type="text" name="${name}" /></td></tr>
+      <tr><td><field-name/></td><td><field-input/></td></tr>
     </fields>
     <tr>
       <td></td>

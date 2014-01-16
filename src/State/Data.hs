@@ -13,7 +13,7 @@ import Control.Applicative
 import Control.Monad (mzero)
 import Blaze.ByteString.Builder (fromByteString
                                 ,fromLazyByteString)
-import Database.PostgreSQL.Simple.FromField hiding (Field)
+import Database.PostgreSQL.Simple.FromField hiding (Field, Array)
 import Database.PostgreSQL.Simple.ToField hiding (Field)
 import Database.PostgreSQL.Simple.Ok
 import Snap.Snaplet.PostgresqlSimple
@@ -23,6 +23,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Lazy (fromStrict)
+import qualified Data.Vector as V
 
 import Application
 import State.Site
@@ -39,18 +40,22 @@ data Data = Data { dataId :: Int
 instance FromRow Data where
   fromRow = Data <$> field <*> field <*> field <*> field
 
-data FieldSpec = StringFieldSpec | NumberFieldSpec
+data FieldSpec = StringFieldSpec | NumberFieldSpec | ListFieldSpec FieldSpec
                  deriving (Show, Eq, Typeable, Ord)
 
 instance FromJSON FieldSpec where
      parseJSON (String "number") = return NumberFieldSpec
      parseJSON (String "string") = return StringFieldSpec
-     -- A non-Object value is of the wrong type, so fail.
-     parseJSON _          = mzero
+     parseJSON (Array arr)       = if V.length arr == 1
+                                      then ListFieldSpec <$> (parseJSON (arr V.! 0))
+                                      else mzero
+     parseJSON _                 = mzero
+
 
 instance ToJSON FieldSpec where
      toJSON NumberFieldSpec = String "number"
      toJSON StringFieldSpec = String "string"
+     toJSON (ListFieldSpec sp) = Array (V.fromList [toJSON sp])
 
 instance FromField (Map Text FieldSpec) where
   fromField _ Nothing = pure M.empty
@@ -61,6 +66,7 @@ instance FromField (Map Text FieldSpec) where
 
 fieldToBs :: FieldSpec -> ByteString
 fieldToBs StringFieldSpec = "string"
+
 fieldToBs NumberFieldSpec = "number"
 
 instance ToField [FieldSpec] where
@@ -71,7 +77,7 @@ parseSpec :: FieldSpec -> ByteString -> Maybe FieldData
 parseSpec StringFieldSpec bs = Just $ StringFieldData (decodeUtf8 bs)
 parseSpec NumberFieldSpec bs = fmap NumberFieldData (readSafe (B8.unpack bs))
 
-data FieldData = StringFieldData Text | NumberFieldData Int
+data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData]
                  deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
 

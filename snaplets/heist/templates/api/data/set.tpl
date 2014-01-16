@@ -2,7 +2,7 @@
 
 <form method="post">
   <table>
-    <tr><td><name/></td><td><input type="text" name="value" value="${value}"/></td></tr>
+    <tr><td><field-name/></td><td><field-input/></td></tr>
     <tr>
       <td></td>
       <td><input type="submit"/></td>

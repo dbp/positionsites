@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings  #-}
+
 module Helpers.Misc where
 
 import Data.ByteString (ByteString)
@@ -5,6 +7,11 @@ import Data.ByteString.Char8 (unpack)
 import Data.Map (Map, assocs)
 import Data.List (sort)
 import Data.Maybe (listToMaybe)
+import Data.Text (Text)
+import qualified Data.Text as T (concat, unpack)
+import Application (AppHandler)
+import Snap.Core (pass)
+import Control.Monad.Trans (liftIO)
 
 
 fst3 :: (a, b, c) -> a
@@ -26,3 +33,8 @@ kvs = sort . assocs
 bsId :: Maybe ByteString -> Maybe Int
 bsId Nothing = Nothing
 bsId (Just i) = readSafe $ unpack i
+
+passLog :: [Text] -> AppHandler ()
+passLog ts = do
+  liftIO $ putStrLn $ T.unpack $ T.concat ("passing: ":ts)
+  pass
