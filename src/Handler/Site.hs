@@ -7,7 +7,6 @@ import Control.Applicative
 import Data.Map (Map, assocs, fromList, lookup, insert, (!))
 import Data.Monoid
 import Data.Maybe
-import Data.Traversable
 import Snap.Core
 import Snap.Snaplet
 import Heist
@@ -145,28 +144,6 @@ siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
                             ,("/list/:id/:field/set/:index", apiListSetItem site)
                             ]
 
-
-getDataFields :: [(Text, FieldSpec)] -> AppHandler (Either Text [(Text, FieldData)])
-getDataFields [] = return $ Right []
-getDataFields (x:xs) = do
-  res <- getDataFields xs
-  case res of
-    Left err -> return $ Left err
-    Right flds -> do
-      p <- getParam (encodeUtf8 $ fst x)
-      case p of
-        Nothing -> return $ Left $ T.concat ["Param not found: ", fst x]
-        Just param ->
-          case snd x of
-            StringFieldSpec -> return $ Right $ (fst x, StringFieldData $ decodeUtf8 param) : flds
-            NumberFieldSpec ->
-              case readSafe (T.unpack $ decodeUtf8 param) of
-                Just n -> return $ Right $ (fst x, NumberFieldData n) : flds
-                Nothing -> return $ Left $ T.concat ["Param '", fst x, "' should have been a number: "
-                                                    , decodeUtf8 param]
-            -- Lists start out empty.
-            ListFieldSpec _ -> return $ Right $ (fst x, ListFieldData []) : flds
-
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
 apiId hndlr = do
   mid <- getParam "id"
@@ -184,9 +161,6 @@ apiIdField hndlr = do
        case fmap decodeUtf8 mfld of
            Nothing -> passLog ["Missing field param."]
            Just field -> hndlr id' field
-
-fieldsForm :: [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
-fieldsForm = sequenceA . map (($ Nothing) . uncurry fieldForm)
 
 apiNewItem :: Site -> Int -> AppHandler ()
 apiNewItem site data_id = do

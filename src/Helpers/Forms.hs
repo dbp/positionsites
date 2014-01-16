@@ -2,6 +2,7 @@
 
 module Helpers.Forms where
 
+import Data.Traversable (sequenceA)
 import Data.Map (Map)
 import Data.Aeson hiding (Error, Success, (.:))
 import Text.Digestive
@@ -33,6 +34,9 @@ jsonMapForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict e) of
                                 Nothing -> Error "Not a valid JSON map."
                                 Just m -> Success m)
               nonEmptyTextForm
+
+fieldsForm :: [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
+fieldsForm = sequenceA . map (($ Nothing) . uncurry fieldForm)
 
 fieldForm :: Text -> FieldSpec -> Maybe FieldData -> Form Text AppHandler (Text, FieldData)
 fieldForm n spec d = n .: validate (fmap (n,) .
