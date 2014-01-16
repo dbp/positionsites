@@ -10,6 +10,7 @@ import Data.Aeson
 import Data.Aeson.TH
 import Data.Typeable
 import Control.Applicative
+import Control.Monad (mzero)
 import Blaze.ByteString.Builder (fromByteString
                                 ,fromLazyByteString)
 import Database.PostgreSQL.Simple.FromField hiding (Field)
@@ -40,7 +41,16 @@ instance FromRow Data where
 
 data FieldSpec = StringFieldSpec | NumberFieldSpec
                  deriving (Show, Eq, Typeable, Ord)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldSpec)
+
+instance FromJSON FieldSpec where
+     parseJSON (String "number") = return NumberFieldSpec
+     parseJSON (String "string") = return StringFieldSpec
+     -- A non-Object value is of the wrong type, so fail.
+     parseJSON _          = mzero
+
+instance ToJSON FieldSpec where
+     toJSON NumberFieldSpec = String "number"
+     toJSON StringFieldSpec = String "string"
 
 instance FromField (Map Text FieldSpec) where
   fromField _ Nothing = pure M.empty
