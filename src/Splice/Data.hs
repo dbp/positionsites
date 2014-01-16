@@ -72,18 +72,24 @@ itemSplices :: Data -> Item -> Splices (Splice AppHandler)
 itemSplices d i = (T.concat ["delete-", dataName d] ## deleteSplice d i)
                   <>
     (mconcat $
-     map (\(name, _spec) -> do
-             T.concat [dataName d, "-", name] ## fldSplice (M.lookup name (itemFields i))
-             T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
-         (M.assocs $ dataFields d))
+     map (\(name, spec) -> do
+             T.concat [dataName d, "-", name] ## fldSplice i name (M.lookup name (itemFields i))
+             if isListFieldSpec spec
+                then T.concat ["list-add-", dataName d, "-", name] ## addListFieldSplice i name
+                else T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
+        (M.assocs $ dataFields d))
 
-fldSplice :: Maybe FieldData -> Splice AppHandler
-fldSplice Nothing = textSplice ""
-fldSplice (Just (StringFieldData s)) = textSplice s
-fldSplice (Just (NumberFieldData n)) = textSplice (tshow n)
-fldSplice (Just (ListFieldData ls)) = mapSplices (runChildrenWith .
-                                                  (\f -> "element" ## fldSplice f) .
-                                                  Just) ls
+fldSplice :: Item -> Text -> Maybe FieldData -> Splice AppHandler
+fldSplice _ _ Nothing = textSplice ""
+fldSplice _ _ (Just (StringFieldData s)) = textSplice s
+fldSplice _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
+fldSplice i n (Just (ListFieldData ls)) =
+  mapSplices (runChildrenWith .
+              (\(Just (idx, f)) -> do
+                "delete-element" ## deleteListFieldSplice i n idx
+                "set-element" ## setListFieldSplice i n idx
+                "element" ## fldSplice i n (Just f)) .
+              Just) (zip [0..] ls)
 
 newItemSplice :: Data -> Splice AppHandler
 newItemSplice d = do
@@ -105,6 +111,38 @@ setFieldSplice :: Item -> Text -> Splice AppHandler
 setFieldSplice i nm = do
   n <- getParamNode
   return [X.Element "a" [("href", T.concat ["/api/set/", tshow (itemId i), "/", nm])
+                         ,("data-box", "1")
+                         ,("data-refresh", "page")]
+                         (X.childNodes n)]
+
+addListFieldSplice :: Item -> Text -> Splice AppHandler
+addListFieldSplice i nm = do
+  n <- getParamNode
+  return [X.Element "a" [("href", T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add"])
+                         ,("data-box", "1")
+                         ,("data-refresh", "page")]
+                         (X.childNodes n)]
+
+deleteListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
+deleteListFieldSplice i nm idx = do
+  n <- getParamNode
+  return [X.Element "a" [("href"
+                        , T.concat ["/api/list/"
+                                   , tshow (itemId i)
+                                   , "/", nm, "/delete/"
+                                   , tshow idx])
+                         ,("data-box", "1")
+                         ,("data-refresh", "page")]
+                         (X.childNodes n)]
+
+setListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
+setListFieldSplice i nm idx = do
+  n <- getParamNode
+  return [X.Element "a" [("href"
+                        , T.concat ["/api/list/"
+                                   , tshow (itemId i)
+                                   , "/", nm, "/set/"
+                                   , tshow idx])
                          ,("data-box", "1")
                          ,("data-refresh", "page")]
                          (X.childNodes n)]

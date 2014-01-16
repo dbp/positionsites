@@ -11,6 +11,7 @@ import Data.Aeson.TH
 import Data.Typeable
 import Control.Applicative
 import Control.Monad (mzero)
+import Control.Monad.Trans (liftIO)
 import Blaze.ByteString.Builder (fromByteString
                                 ,fromLazyByteString)
 import Database.PostgreSQL.Simple.FromField hiding (Field, Array)
@@ -87,6 +88,18 @@ renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
 renderFieldData (NumberFieldData n) = tshow n
 renderFieldData (ListFieldData elems) = T.concat $ ["["] ++ [T.intercalate ", " (map renderFieldData elems)] ++ ["]"]
+
+modifyListFieldElems :: FieldData -> ([FieldData] -> [FieldData]) -> FieldData
+modifyListFieldElems (ListFieldData elems) f = ListFieldData (f elems)
+modifyListFieldElems x _ = error $ "Expected ListFieldData, got " ++ (show x)
+
+isListFieldSpec :: FieldSpec -> Bool
+isListFieldSpec (ListFieldSpec _) = True
+isListFieldSpec _ = False
+
+getListFieldElems :: FieldData -> [FieldData]
+getListFieldElems (ListFieldData elems) = elems
+getListFieldElems x = error $ "Expected ListFieldData, got " ++ (show x)
 
 data Item = Item { itemId :: Int
                  , itemDataId :: Int

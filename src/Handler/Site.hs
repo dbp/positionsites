@@ -140,15 +140,17 @@ siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
                             ,("/delete/:id", apiId $ apiDeleteItem site)
                             ,("/set/:id/:field", apiIdField $ apiSetFieldItem site)
                             ,("/list/:id/:field/add", apiIdField $ apiListAddItem site)
-                            ,("/list/:id/:field/delete/:index", apiListDeleteItem site)
-                            ,("/list/:id/:field/set/:index", apiListSetItem site)
+                            ,("/list/:id/:field/delete/:index",
+                              apiIdFieldIndex $ apiListDeleteItem site)
+                            ,("/list/:id/:field/set/:index",
+                               apiIdFieldIndex $ apiListSetItem site)
                             ]
 
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
 apiId hndlr = do
   mid <- getParam "id"
   case bsId mid of
-     Nothing -> pass
+     Nothing -> passLog ["Mising id param, or not int."]
      Just id' -> hndlr id'
 
 apiIdField :: (Int -> Text -> AppHandler ()) -> AppHandler ()
@@ -161,6 +163,40 @@ apiIdField hndlr = do
        case fmap decodeUtf8 mfld of
            Nothing -> passLog ["Missing field param."]
            Just field -> hndlr id' field
+
+apiIdFieldIndex :: (Int -> Text -> Int -> AppHandler ()) -> AppHandler ()
+apiIdFieldIndex hndlr = do
+  mid <- getParam "id"
+  case bsId mid of
+     Nothing -> passLog ["Missing id param, or not int."]
+     Just id' -> do
+       mfld <- getParam "field"
+       case fmap decodeUtf8 mfld of
+           Nothing -> passLog ["Missing field param."]
+           Just field -> do
+             midx <- getParam "index"
+             case bsId midx of
+               Nothing -> passLog ["Missing index param"]
+               Just idx -> hndlr id' field idx
+
+itemDataFieldSpecLookup :: Site
+                        -> Int
+                        -> Text
+                        -> (Item -> Data -> FieldSpec -> AppHandler ())
+                        -> AppHandler ()
+itemDataFieldSpecLookup site item_id field hndlr = do
+   mit <- getItemById site item_id
+   case mit of
+     Nothing -> passLog ["No item with id ", (tshow item_id)]
+     Just item -> do
+       d <- getDataById site (itemDataId item)
+       case d of
+         Nothing -> passLog ["Data id in item not valid: ", tshow (itemDataId item)]
+         Just dat ->
+           case lookup field (dataFields dat) of
+             Nothing -> passLog ["Field missing from data: ", field]
+             Just spec -> hndlr item dat spec
+
 
 apiNewItem :: Site -> Int -> AppHandler ()
 apiNewItem site data_id = do
@@ -190,24 +226,6 @@ apiDeleteItem site item_id =do
         modifyResponse (setResponseCode 201)
         return ())
 
-itemDataFieldSpecLookup :: Site
-                        -> Int
-                        -> Text
-                        -> (Item -> Data -> FieldSpec -> AppHandler ())
-                        -> AppHandler ()
-itemDataFieldSpecLookup site item_id field hndlr = do
-   mit <- getItemById site item_id
-   case mit of
-     Nothing -> passLog ["No item with id ", (tshow item_id)]
-     Just item -> do
-       d <- getDataById site (itemDataId item)
-       case d of
-         Nothing -> passLog ["Data id in item not valid: ", tshow (itemDataId item)]
-         Just dat ->
-           case lookup field (dataFields dat) of
-             Nothing -> passLog ["Field missing from data: ", field]
-             Just spec -> hndlr item dat spec
-
 apiSetFieldItem :: Site -> Int -> Text -> AppHandler ()
 apiSetFieldItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
   do r <- runForm "set-field" (fieldForm field spec (Just (itemFields item ! field)))
@@ -220,18 +238,54 @@ apiSetFieldItem site item_id field = itemDataFieldSpecLookup site item_id field 
            return ()
 
 apiListAddItem :: Site -> Int -> Text -> AppHandler ()
-apiListAddItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
-    (method GET $ renderWithSplices "api/data/list"
-                  (apiDataFieldSplice (itemFields item ! field) field))
-    <|>
-    (method POST $ do
-      return ())
+apiListAddItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+  case spec' of
+    ListFieldSpec spec ->
+      do r <- runForm "list-add" (fieldForm field spec Nothing)
+         case r of
+           (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
+                                                            <> fieldsSplice (field, spec))
+           (_, Just (_, val)) -> do
+             let flds = itemFields item
+             updateItem $ item { itemFields = insert field
+                                 (modifyListFieldElems (flds ! field) (val:)) flds}
+             modifyResponse (setResponseCode 201)
+             return ()
+    _ -> passLog ["Tried to add a list item to a non-list."]
 
-apiListDeleteItem :: Site -> AppHandler ()
-apiListDeleteItem = undefined
+apiListDeleteItem :: Site -> Int -> Text -> Int -> AppHandler ()
+apiListDeleteItem site item_id field idx =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+      ListFieldSpec _spec ->
+        (method GET $ render "api/data/delete")
+        <|>
+        (method POST $ do
+          let flds = itemFields item
+          updateItem $ item { itemFields = insert field
+                                (modifyListFieldElems (flds ! field) (removeAt idx)) flds}
+          modifyResponse (setResponseCode 201)
+          return ())
+      _ -> passLog ["Tried to add a list item to a non-list."]
+  where removeAt n lst = take n lst ++ drop (n + 1) lst
 
-apiListSetItem :: Site -> AppHandler ()
-apiListSetItem = undefined
+apiListSetItem :: Site -> Int -> Text -> Int ->  AppHandler ()
+apiListSetItem site item_id field idx =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+      ListFieldSpec spec ->
+        do let flds = itemFields item
+           r <- runForm "list-set" (fieldForm field spec
+                                    (Just ((getListFieldElems $ flds ! field) !! idx)))
+           case r of
+             (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
+                                                            <> fieldsSplice (field, spec))
+             (_, Just (_, val)) -> do
+               updateItem $ item { itemFields = insert field
+                                   (modifyListFieldElems (flds ! field) (updateAt idx val)) flds}
+               modifyResponse (setResponseCode 201)
+               return ()
+  where updateAt n val lst = take n lst ++ [val] ++ drop (n + 1) lst
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
