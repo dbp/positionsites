@@ -20,20 +20,30 @@ $(function () {
     var refresh_option = $(this).attr("data-refresh") || "none";
 
     $.ajax(target, {
-        success: function (resp, status, xhr) {
-            div.html(resp);
-            div.find("form").on("submit", function () {
-              $.post(target, $(this).serialize(), function () {
-                close.click();
-                refresh(refresh_option);
-              });
-              div.html("Submitting...");
-              return false;
-            });
-          }
+        success: load_box
       });
 
     return false;
+
+    function load_box(resp, status, xhr) {
+      div.html(resp);
+      div.find("form").on("submit", function () {
+        $.post(target, $(this).serialize(), handle_response);
+        div.html("Submitting...");
+        return false;
+      });
+    }
+
+    function handle_response(resp, status, xhr) {
+        console.log(xhr.status);
+      if (xhr.status === 201) {
+        close.click();
+        refresh(refresh_option);
+      } else {
+        load_box(resp, status, xhr);
+      }
+    }
+
   });
 
   function refresh(option) {

@@ -1,13 +1,18 @@
 <apply template="base">
 
-<form method="post">
+<dfForm method="post">
   <table>
-    <tr><td><field-name/></td><td><field-input/></td></tr>
+    <tr><td><field-ref/></td><td><dfInput type="${field-type}" ref="${field-ref}"/></td></tr>
+    <dfIfChildErrors ref="${field-ref}">
+      <tr>
+        <td></td><td><dfErrorList ref="${field-ref}" /></td>
+      </tr>
+    </dfIfChildErrors>
     <tr>
       <td></td>
       <td><input type="submit"/></td>
     </tr>
   </table>
-</form>
+</dfForm>
 
 </apply>

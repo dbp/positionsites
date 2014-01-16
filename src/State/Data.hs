@@ -17,7 +17,8 @@ import Database.PostgreSQL.Simple.FromField hiding (Field, Array)
 import Database.PostgreSQL.Simple.ToField hiding (Field)
 import Database.PostgreSQL.Simple.Ok
 import Snap.Snaplet.PostgresqlSimple
-import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Text (Text, unpack)
 import Data.Text.Encoding (decodeUtf8)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
@@ -29,6 +30,7 @@ import Application
 import State.Site
 import Helpers.State
 import Helpers.Misc
+import Helpers.Text
 
 data Data = Data { dataId :: Int
                  , dataSiteId :: Int
@@ -73,13 +75,18 @@ instance ToField [FieldSpec] where
   toField flds = Plain (fromByteString $ B8.intercalate "," $ map fieldToBs flds)
 
 
-parseSpec :: FieldSpec -> ByteString -> Maybe FieldData
-parseSpec StringFieldSpec bs = Just $ StringFieldData (decodeUtf8 bs)
-parseSpec NumberFieldSpec bs = fmap NumberFieldData (readSafe (B8.unpack bs))
+parseSpec :: FieldSpec -> Text -> Maybe FieldData
+parseSpec StringFieldSpec s = Just $ StringFieldData s
+parseSpec NumberFieldSpec s = fmap NumberFieldData (readSafe (unpack s))
 
 data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData]
                  deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
+
+renderFieldData :: FieldData -> Text
+renderFieldData (StringFieldData s) = s
+renderFieldData (NumberFieldData n) = tshow n
+renderFieldData (ListFieldData elems) = T.concat $ ["["] ++ [T.intercalate ", " (map renderFieldData elems)] ++ ["]"]
 
 data Item = Item { itemId :: Int
                  , itemDataId :: Int

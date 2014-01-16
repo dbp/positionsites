@@ -29,19 +29,19 @@ manageDatumSplices d = do
   "name" ## textSplice (dataName d)
   "fields" ## textSplice (T.decodeUtf8 $ toStrict $ encode (dataFields d))
 
-apiDataSplices :: Data -> Splices (Splice AppHandler)
-apiDataSplices d = do "fields" ## mapSplices (runChildrenWith . fieldsSplice)
-                                             (kvs $ dataFields d)
-                      "id" ## textSplice (tshow (dataId d))
- where fieldsSplice (n, StringFieldSpec) = do
-         "field-name" ## textSplice n
-         "field-input" ## inputTextSplice n Nothing
-       fieldsSplice (n, NumberFieldSpec) = do
-         "field-name" ## textSplice n
-         "field-input" ## inputTextSplice n Nothing
-       fieldsSplice (n, ListFieldSpec et) = do
-         "field-name" ## textSplice n
-         "field-input" ## inputNullSplice n
+apiFieldsSplice :: Data -> Splices (Splice AppHandler)
+apiFieldsSplice d = "fields" ## mapSplices (runChildrenWith . fieldsSplice) (kvs $ dataFields d)
+
+fieldsSplice :: (Text, FieldSpec) -> Splices (Splice AppHandler)
+fieldsSplice (n, StringFieldSpec) = do
+  "field-ref" ## textSplice n
+  "field-type" ## textSplice "text"
+fieldsSplice (n, NumberFieldSpec) = do
+  "field-ref" ## textSplice n
+  "field-type" ## textSplice "text"
+fieldsSplice (n, ListFieldSpec et) = do
+  "field-name" ## textSplice n
+  "field-type" ## textSplice "hidden"
 
 apiDataFieldSplice :: FieldData -> Text -> Splices (Splice AppHandler)
 apiDataFieldSplice (StringFieldData s) name = do

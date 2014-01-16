@@ -7,6 +7,7 @@ import Control.Applicative
 import Data.Map (Map, assocs, fromList, lookup, insert, (!))
 import Data.Monoid
 import Data.Maybe
+import Data.Traversable
 import Snap.Core
 import Snap.Snaplet
 import Heist
@@ -184,24 +185,23 @@ apiIdField hndlr = do
            Nothing -> passLog ["Missing field param."]
            Just field -> hndlr id' field
 
+fieldsForm :: [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
+fieldsForm = sequenceA . map (($ Nothing) . uncurry fieldForm)
+
 apiNewItem :: Site -> Int -> AppHandler ()
 apiNewItem site data_id = do
   d <- getDataById site data_id
   case d of
     Nothing -> passLog ["Data id not valid."]
     Just dat -> do
-      (method POST $ do
-        res <- getDataFields (kvs $ dataFields dat)
-        case res of
-          Left err -> renderWithSplices "api/error" ("error" ## textSplice err)
-          Right fields -> do
-            newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList fields))
-            return ())
-      <|>
-      (method GET $ do
-          let splices = apiDataSplices dat
-          renderWithSplices "api/data/new" splices)
-
+      r <- runForm "new-item" (fieldsForm (kvs (dataFields dat)))
+      case r of
+        (v, Nothing) ->
+          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+        (_, Just flds) -> do
+          newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+          modifyResponse (setResponseCode 201)
+          render "api/data/new_success"
 
 apiDeleteItem :: Site -> Int -> AppHandler ()
 apiDeleteItem site item_id =do
@@ -213,6 +213,7 @@ apiDeleteItem site item_id =do
       <|>
       (method POST $ do
         deleteItem item
+        modifyResponse (setResponseCode 201)
         return ())
 
 itemDataFieldSpecLookup :: Site
@@ -235,20 +236,14 @@ itemDataFieldSpecLookup site item_id field hndlr = do
 
 apiSetFieldItem :: Site -> Int -> Text -> AppHandler ()
 apiSetFieldItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
-   (method GET $ renderWithSplices "api/data/set"
-                 (apiDataFieldSplice (itemFields item ! field) field))
-   <|>
-   (method POST $ do
-     mv <- getParam "value"
-     case mv of
-       Nothing -> passLog ["Missing param value."]
-       Just v ->
-         case parseSpec spec v of
-           Nothing -> renderWithSplices "api/error"
-                      ("error" ## textSplice "Not valid data")
-           Just val -> do
-             updateItem $ item { itemFields = insert field val (itemFields item)}
-             return ())
+  do r <- runForm "set-field" (fieldForm field spec (Just (itemFields item ! field)))
+     case r of
+       (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
+                                                        <> fieldsSplice (field, spec))
+       (_, Just (_n, val)) -> do
+           updateItem $ item { itemFields = insert field val (itemFields item)}
+           modifyResponse (setResponseCode 201)
+           return ()
 
 apiListAddItem :: Site -> Int -> Text -> AppHandler ()
 apiListAddItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
