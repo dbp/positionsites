@@ -5,36 +5,65 @@
     var editor = CodeMirror.fromTextArea(elem, {
       mode: "text/html",
       lineNumbers: true,
-      readOnly: "nocursor"
+      readOnly: "nocursor",
+      viewportMargin: Infinity
+    });
+    });
+    $(".fields-textarea").each(function (_, elem) {
+    var editor = CodeMirror.fromTextArea(elem, {
+      mode: "javascript",
+      readOnly: "nocursor",
+      viewportMargin: Infinity
     });
     });
     });
   </script>
 
-  <h1>Site <domain/></h1>
+  <h1 class="title">Dashboard for domain <domain/>.</h1>
 
-  <h3>Data</h3>
-  <a href="/site/${site_id}/data/new">New Data</a><br/>
-  <hr/>
-  <data>
-    <name/>
-    <p><fields/></p>
-    <hr/>
-  </data>
+  <h3 class="section-heading">Data Types (<a href="/site/${site_id}/data/new">add</a>)</h3>
+  <div class="section">
+    <data>
+      <div class="section-elem">
+        <div class="section-name"><name/></div>
+        <table class="section-table">
+          <tr>
+            <td class="name">Definition</td>
+            <td><textarea class='fields-textarea'><fields/></textarea></td>
+          </tr>
+          <tr>
+            <td class="name">Items</td>
+            <td><item-count/></td>
+          </tr>
+        </table>
+      </div> <!-- .section-elem -->
+    </data>
+  </div> <!-- .section -->
 
 
-  <h3>Pages</h3>
-  <a href="/site/${site_id}/page/new">New Page</a><br/>
-  <hr/>
-  <table id="pages">
-    <tr><th>URL</th><th>Links</th><th>Content</th>
+  <h3 class="section-heading">Pages (<a href="/site/${site_id}/page/new">add</a>)</h3>
+  <div class="section">
     <pages>
-      <tr>
-        <td><flat/></td>
-        <td><a href="http://${domain}:8000${flat}">visit</a> |
-          <a href="/site/${site_id}/page/edit/${id}">edit</a></td>
-        <td class="textarea-readonly"><textarea class='body-textarea'><body-html/></textarea></td>
-      </tr>
+      <div class="section-elem">
+        <div class="section-name"><structured/></div>
+        <table class="section-table">
+          <tr>
+            <td class="name">Meta</td>
+            <td>
+              <a href="/site/${site_id}/page/edit/${id}">edit</a>
+              <a target="_blank" href="http://${domain}:8000${flat}">visit</a> |
+            </td>
+          </tr>
+          <tr>
+            <td class="name">Content</td>
+            <td class="textarea-readonly">
+              <textarea class='body-textarea'><body-html/></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
     </pages>
-  </table>
+
+  </div> <!-- .section -->
+
 </apply>

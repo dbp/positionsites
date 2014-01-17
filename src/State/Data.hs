@@ -132,6 +132,9 @@ getDataById s i = singleQuery "select id, site_id, name, fields from data where 
 getItems :: Data -> AppHandler [Item]
 getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ? order by id desc" (dataId d, dataSiteId d)
 
+itemCount :: Data -> AppHandler Int
+itemCount d = numberQuery "select count(*) from items where data_id = ? and site_id = ?" (dataId d, dataSiteId d)
+
 newData :: Data -> AppHandler (Maybe Int)
 newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
 

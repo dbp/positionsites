@@ -28,6 +28,12 @@ manageDatumSplices d = do
   "id" ## textSplice (tshow (dataId d))
   "name" ## textSplice (dataName d)
   "fields" ## textSplice (T.decodeUtf8 $ toStrict $ encode (dataFields d))
+  "item-count" ## itemCountSplice d
+
+itemCountSplice :: Data -> Splice AppHandler
+itemCountSplice d = do
+  count <- lift (itemCount d)
+  textSplice (tshow count)
 
 apiFieldsSplice :: Data -> Splices (Splice AppHandler)
 apiFieldsSplice d = "fields" ## mapSplices (runChildrenWith . fieldsSplice) (kvs $ dataFields d)
