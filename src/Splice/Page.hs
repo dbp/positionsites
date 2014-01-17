@@ -26,4 +26,4 @@ managePageSplices p = do
   "id" ## textSplice (tshow (pageId p))
   "flat" ## textSplice (T.decodeUtf8 $ pageFlat p)
   "structured" ## textSplice (pageStructured p)
-  "body" ## textSplice (pageBody p)
+  "body-html" ## textSplice (pageBody p)

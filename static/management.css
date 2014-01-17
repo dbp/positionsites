@@ -1,0 +1,27 @@
+.textarea-readonly .CodeMirror {
+    background-color: #eee;
+}
+.CodeMirror {
+  border: 1px solid #eee;
+  height: auto;
+}
+.CodeMirror-scroll {
+  overflow-y: hidden;
+  overflow-x: auto;
+}
+
+.CodeMirror-matchingtag { background: rgba(200, 200, 200, .3); }
+
+
+table.editor td.textarea {
+    width: 40em;
+}
+
+table#pages td {
+    padding: 5px;
+    vertical-align: top;
+}
+
+table#pages th {
+    text-align: left;
+}

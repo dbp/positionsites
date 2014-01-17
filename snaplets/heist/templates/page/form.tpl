@@ -1,5 +1,18 @@
+<script>
+  $(function () {
+    var editor = CodeMirror.fromTextArea($("#body-textarea")[0], {
+      mode: "text/html",
+      lineNumbers: true,
+      autoCloseTags: true,
+      matchTags: {bothTags: true},
+      extraKeys: {"Ctrl-J": "toMatchingTag"}
+
+    });
+  });
+</script>
+
 <dfForm method="post">
-  <table>
+  <table class="editor">
     <tr>
       <td><dfLabel ref="flat">Flat URL</dfLabel></td>
       <td><dfInputText ref="flat" size="20" /></td>
@@ -20,7 +33,7 @@
     </dfIfChildErrors>
     <tr>
       <td><dfLabel ref="body">Body</dfLabel></td>
-      <td><dfInputTextArea ref="body" rows="10" cols="40" /></td>
+      <td class="textarea"><dfInputTextArea ref="body" rows="40" id="body-textarea" /></td>
     </tr>
     <dfIfChildErrors ref="body">
       <tr>
