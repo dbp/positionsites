@@ -45,13 +45,16 @@
   <div class="section">
     <pages>
       <div class="section-elem">
-        <div class="section-name"><structured/></div>
+        <div class="section-name">
+          <a target="_blank" href="http://${domain}${server-port}${flat}">
+            <structured/>
+          </a>
+        </div>
         <table class="section-table">
           <tr>
             <td class="name">Meta</td>
             <td>
               <a href="/site/${site_id}/page/edit/${id}">edit</a>
-              <a target="_blank" href="http://${domain}:8000${flat}">visit</a> |
             </td>
           </tr>
           <tr>
