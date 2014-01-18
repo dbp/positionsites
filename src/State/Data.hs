@@ -43,7 +43,7 @@ data Data = Data { dataId :: Int
 instance FromRow Data where
   fromRow = Data <$> field <*> field <*> field <*> field
 
-data FieldSpec = StringFieldSpec | NumberFieldSpec | ListFieldSpec FieldSpec
+data FieldSpec = StringFieldSpec | NumberFieldSpec | ListFieldSpec FieldSpec | DataFieldSpec Text
                  deriving (Show, Eq, Typeable, Ord)
 
 instance FromJSON FieldSpec where
@@ -52,6 +52,7 @@ instance FromJSON FieldSpec where
      parseJSON (Array arr)       = if V.length arr == 1
                                       then ListFieldSpec <$> (parseJSON (arr V.! 0))
                                       else mzero
+     parseJSON (Object o)        = DataFieldSpec <$> o .: "data"
      parseJSON _                 = mzero
 
 
@@ -59,6 +60,7 @@ instance ToJSON FieldSpec where
      toJSON NumberFieldSpec = String "number"
      toJSON StringFieldSpec = String "string"
      toJSON (ListFieldSpec sp) = Array (V.fromList [toJSON sp])
+     toJSON (DataFieldSpec nm) = object ["data" .= nm]
 
 instance FromField (Map Text FieldSpec) where
   fromField _ Nothing = pure M.empty
@@ -79,6 +81,7 @@ instance ToField [FieldSpec] where
 parseSpec :: FieldSpec -> Text -> Maybe FieldData
 parseSpec StringFieldSpec s = Just $ StringFieldData s
 parseSpec NumberFieldSpec s = fmap NumberFieldData (readSafe (unpack s))
+parseSpec (ListFieldSpec _) s = Just $ ListFieldData []
 
 data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData]
                  deriving (Show, Eq, Typeable, Ord)

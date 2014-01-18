@@ -23,7 +23,6 @@ routes = [("/static", serveDirectory "static")
 domainHandler :: AppHandler ()
 domainHandler = do
   name <- fmap rqServerName getRequest
-  liftIO $ print name
   case name of
    "hosting" -> route managementRoutes
    "positionsites.com" -> route managementRoutes

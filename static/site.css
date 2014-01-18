@@ -1,16 +1,15 @@
 .box {
     position: absolute;
     top: 20%;
-    border: 30px solid rgba(0,0,0,0.8);
-    background-color: rgba(0,0,0,0.8);
-    border-radius: 15px;
+    border: 1px solid #ccc;
+    background-color:  #58ACFA;
     margin: 0 auto;
 }
 
 .box .inner {
-    border: 10px solid #fff;
-    background-color: #fff;
-    border-radius: 10px;
+    margin: 10px;
+    background-color: #efefef;
+    padding: 10px;
 }
 
 .box .close-container {

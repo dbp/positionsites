@@ -1,4 +1,4 @@
-<apply template="base">
+<apply template="api_base">
 
 <dfForm method="post">
   <table>

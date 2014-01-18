@@ -46,7 +46,7 @@ fieldsSplice (n, NumberFieldSpec) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "text"
 fieldsSplice (n, ListFieldSpec et) = do
-  "field-name" ## textSplice n
+  "field-ref" ## textSplice n
   "field-type" ## textSplice "hidden"
 
 apiDataFieldSplice :: FieldData -> Text -> Splices (Splice AppHandler)

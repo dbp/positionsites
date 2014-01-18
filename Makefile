@@ -10,11 +10,16 @@ run:
 deploy: send
 	ssh $(USER)@$(SERVER) "/var/www/scripts/deploy.sh"
 
-send:
+
+deploy-static: send-static
+	ssh $(USER)@$(SERVER) "/var/www/scripts/reload.sh"
+
+send: send-static
 	cabal install
 	scp angel.conf $(USER)@$(SERVER):
 	scp dist/build/positionsites/positionsites $(USER)@$(SERVER):positionsites-new
-	rsync --checksum -avz -e ssh scripts/* $(USER)@$(SERVER):scripts
+
+send-static:
 	rsync --checksum -avz -e ssh static/* $(USER)@$(SERVER):static
 	rsync --checksum -avz -e ssh snaplets/* $(USER)@$(SERVER):snaplets
 

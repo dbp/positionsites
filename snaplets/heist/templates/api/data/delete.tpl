@@ -1,4 +1,4 @@
-<apply template="base">
+<apply template="api_base">
 
 <form method="post">
   <table>
