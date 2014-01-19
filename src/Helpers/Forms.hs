@@ -14,7 +14,7 @@ import Data.Text (Text)
 
 import Application
 import Helpers.Text
-import State.Data (FieldSpec, FieldData, parseSpec, renderFieldData)
+import State.Data (Item(..), FieldSpec, FieldData, parseSpec, renderFieldData)
 
 emailForm :: Maybe Text -> Form Text AppHandler Text
 emailForm email = check "Not a valid email address." (\e -> T.isInfixOf "@" e) $
@@ -43,3 +43,7 @@ fieldForm n spec d = n .: validate (fmap (n,) .
                                     (maybe (Error $ T.concat ["Not a valid ", n, "."]) Success) .
                                     (parseSpec spec))
                                    (text (fmap renderFieldData d))
+
+
+fieldDataExistingForm :: [Item] -> Form Text AppHandler Int
+fieldDataExistingForm items = "item" .: choice (map (\i -> (itemId i, T.concat ["Item ", tshow (itemId i)])) items) Nothing

@@ -144,6 +144,9 @@ siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
                               apiIdFieldIndex $ apiListDeleteItem site)
                             ,("/list/:id/:field/set/:index",
                                apiIdFieldIndex $ apiListSetItem site)
+                            ,("/delete/:id/data/:field", apiIdField $ apiDeleteField site)
+                            ,("/set/:id/data/:field/existing", apiIdField $ apiSetDataFieldExisting site)
+                            ,("/set/:id/data/:field/new", apiIdField $ apiSetDataFieldNew site)
                             ]
 
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
@@ -287,6 +290,60 @@ apiListSetItem site item_id field idx =
                return ()
   where updateAt n val lst = take n lst ++ [val] ++ drop (n + 1) lst
 
+
+apiSetDataFieldExisting :: Site -> Int -> Text -> AppHandler ()
+apiSetDataFieldExisting site item_id field =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     DataFieldSpec nm -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+           items <- getItems dat
+           r <- runForm "field-data-existing" (fieldDataExistingForm items)
+           case r of
+             (v, Nothing) -> renderWithSplices "api/data/field/existing" (digestiveSplices v)
+             (_, Just id') -> do
+               updateItem $ item { itemFields = insert field (DataFieldData (Just id')) (itemFields item)}
+               modifyResponse (setResponseCode 201)
+               return ()
+
+apiSetDataFieldNew :: Site -> Int -> Text -> AppHandler ()
+apiSetDataFieldNew site item_id field =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     DataFieldSpec nm -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+          r <- runForm "field-data-new" (fieldsForm (kvs (dataFields dat)))
+          case r of
+            (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+            (_, Just flds) -> do
+              mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+              case mid of
+                Nothing -> error "Could not create new item"
+                Just id' -> do
+                  updateItem $ item { itemFields = insert field (DataFieldData (Just id')) (itemFields item)}
+                  modifyResponse (setResponseCode 201)
+                  return ()
+
+
+apiDeleteField :: Site -> Int -> Text -> AppHandler ()
+apiDeleteField site item_id field =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     DataFieldSpec nm ->
+       (method GET $ render "api/data/delete")
+       <|>
+       (method POST $ do
+         updateItem $ item { itemFields = insert field (DataFieldData Nothing) (itemFields item)}
+         modifyResponse (setResponseCode 201)
+         return ())
+
+
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
   route (map (\p -> (pageFlat p, renderPage site p))
@@ -296,7 +353,7 @@ routePages site pgs =
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   ds <- getSiteData s
-  let splices = mconcat $ map dataSplices ds
+  let splices = mconcat $ map (dataSplices s) ds
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)

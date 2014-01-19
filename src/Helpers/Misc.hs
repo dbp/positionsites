@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE OverloadedStrings, PackageImports  #-}
 
 module Helpers.Misc where
 
@@ -11,7 +11,7 @@ import Data.Text (Text)
 import qualified Data.Text as T (concat, unpack)
 import Application (AppHandler)
 import Snap.Core (pass)
-import Control.Monad.Trans (liftIO)
+import "mtl" Control.Monad.Trans (liftIO)
 
 
 fst3 :: (a, b, c) -> a

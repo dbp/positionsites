@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable,
-             FlexibleInstances, TemplateHaskell  #-}
+             FlexibleInstances, TemplateHaskell, PackageImports  #-}
 
 module State.Data where
 
@@ -11,7 +11,7 @@ import Data.Aeson.TH
 import Data.Typeable
 import Control.Applicative
 import Control.Monad (mzero)
-import Control.Monad.Trans (liftIO)
+import "mtl" Control.Monad.Trans (liftIO)
 import Blaze.ByteString.Builder (fromByteString
                                 ,fromLazyByteString)
 import Database.PostgreSQL.Simple.FromField hiding (Field, Array)
@@ -82,8 +82,9 @@ parseSpec :: FieldSpec -> Text -> Maybe FieldData
 parseSpec StringFieldSpec s = Just $ StringFieldData s
 parseSpec NumberFieldSpec s = fmap NumberFieldData (readSafe (unpack s))
 parseSpec (ListFieldSpec _) s = Just $ ListFieldData []
+parseSpec (DataFieldSpec _) s = Just $ DataFieldData Nothing
 
-data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData]
+data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData] | DataFieldData (Maybe Int)
                  deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
 
@@ -91,6 +92,7 @@ renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
 renderFieldData (NumberFieldData n) = tshow n
 renderFieldData (ListFieldData elems) = T.concat $ ["["] ++ [T.intercalate ", " (map renderFieldData elems)] ++ ["]"]
+renderFieldData (DataFieldData mid) = T.concat ["data(", maybe "" tshow mid, ")"]
 
 modifyListFieldElems :: FieldData -> ([FieldData] -> [FieldData]) -> FieldData
 modifyListFieldElems (ListFieldData elems) f = ListFieldData (f elems)
@@ -131,6 +133,10 @@ getSiteData s = query "select id, site_id, name, fields from data where site_id 
 
 getDataById :: Site -> Int -> AppHandler (Maybe Data)
 getDataById s i = singleQuery "select id, site_id, name, fields from data where site_id = ? and id = ?" (siteId s, i)
+
+getDataByName :: Site -> Text -> AppHandler (Maybe Data)
+getDataByName s nm = singleQuery "select id, site_id, name, fields from data where site_id = ? and name = ?" (siteId s, nm)
+
 
 getItems :: Data -> AppHandler [Item]
 getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ? order by id desc" (dataId d, dataSiteId d)
