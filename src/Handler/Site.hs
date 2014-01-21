@@ -11,8 +11,8 @@ import Snap.Core
 import Snap.Snaplet
 import Heist
 import Heist.Interpreted (Splice, textSplice, addTemplate
-                         ,renderTemplate, bindSplices
-                         ,runChildrenWith)
+                         ,renderTemplate, bindSplices, bindSplice
+                         ,runChildrenWith, lookupSplice)
 import Snap.Snaplet.Heist
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
@@ -155,12 +155,28 @@ routePages site pgs =
   route (map (\p -> (pageFlat p, renderPage site p))
              pgs)
 
+rebindSplice :: Splice AppHandler
+rebindSplice = do
+  node <- getParamNode
+  let attrs = do o <- getAttribute "old" node
+                 n <- getAttribute "new" node
+                 return (o, n)
+  case attrs of
+    Nothing -> return []
+    Just (old, new) -> do
+      st <- getHS
+      let spl = lookupSplice old st
+      case spl of
+        Nothing -> return []
+        Just splice -> do
+           modifyHS $ bindSplice new splice
+           return []
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = mconcat $ map (dataSplices s) ds
+  let splices = mappend (mconcat $ map (dataSplices s) ds) ("rebind" ## rebindSplice)
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
