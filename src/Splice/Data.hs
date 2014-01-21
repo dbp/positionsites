@@ -81,20 +81,20 @@ renderAllItems s d = do
 
 itemSplices :: Site -> Data -> Item
             -> Splices (Splice AppHandler)
-itemSplices s d i = (do T.concat ["delete-", dataName d] ## deleteSplice d i)
+itemSplices s d i = (do "delete" ## deleteSplice d i)
                     <> fieldsSplices s d i (M.assocs $ dataFields d)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
 fieldsSplices s d i fields = (T.concat ["id"] ## textSplice (tshow (itemId i))) <>
  (mconcat $ map (\(name, spec) -> do
-              T.concat [dataName d, "-", name] ## fldSplice spec s d i name (M.lookup name (itemFields i))
+              name ## fldSplice spec s d i name (M.lookup name (itemFields i))
               case spec of
                 ListFieldSpec (DataFieldSpec _) -> do
-                  T.concat ["list-add-", dataName d, "-", name, "-existing"] ## addListFieldDataExistingSplice i name
-                  T.concat ["list-add-", dataName d, "-", name, "-new"] ## addListFieldDataNewSplice i name
+                  T.concat ["add-", name, "-existing"] ## addListFieldDataExistingSplice i name
+                  T.concat ["add-", name, "-new"] ## addListFieldDataNewSplice i name
                 ListFieldSpec _ ->
-                  T.concat ["list-add-", dataName d, "-", name] ## addListFieldSplice i name
-                _ -> T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
+                  T.concat ["add-",  name] ## addListFieldSplice i name
+                _ -> T.concat ["set-", name] ## setFieldSplice i name)
             fields)
 
 fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Splice AppHandler
@@ -104,16 +104,16 @@ fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
-                "delete-element" ## deleteListFieldSplice i n idx
-                "set-element-existing" ## setListFieldDataExistingSplice i n idx
-                "set-element-new" ## setListFieldDataNewSplice i n idx
+                "delete" ## deleteListFieldSplice i n idx
+                "set-existing" ## setListFieldDataExistingSplice i n idx
+                "set-new" ## setListFieldDataNewSplice i n idx
                 "element" ## fldSplice (DataFieldSpec nm) s d i n (Just f)) .
               Just) (zip [0..] ls)
 fldSplice (ListFieldSpec inner) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
-                "delete-element" ## deleteListFieldSplice i n idx
-                "set-element" ## setListFieldSplice i n idx
+                "delete" ## deleteListFieldSplice i n idx
+                "set" ## setListFieldSplice i n idx
                 "element" ## fldSplice inner s d i n (Just f)) .
               Just) (zip [0..] ls)
 fldSplice _ s d i name (Just (DataFieldData mid)) =
