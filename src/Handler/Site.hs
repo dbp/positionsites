@@ -10,8 +10,9 @@ import Data.Maybe
 import Snap.Core
 import Snap.Snaplet
 import Heist
-import Heist.Interpreted (textSplice, addTemplate
-                         ,renderTemplate, bindSplices)
+import Heist.Interpreted (Splice, textSplice, addTemplate
+                         ,renderTemplate, bindSplices
+                         ,runChildrenWith)
 import Snap.Snaplet.Heist
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
@@ -442,6 +443,7 @@ routePages site pgs =
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
+  urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
   let splices = mconcat $ map (dataSplices s) ds
   modifyResponse (setContentType "text/html")
@@ -454,8 +456,30 @@ renderPage s p = do
                                                  }
       let newst = addTemplate "page" [Element "apply" [("template", "site")] (docContent html)]
                   Nothing st
-      let newst' = bindSplices (splices <> defaultLoadTimeSplices) newst
+      let newst' = bindSplices (urlDataSplices <> splices <> defaultLoadTimeSplices) newst
       res <- renderTemplate newst' "page"
       case res of
         Nothing -> error "Could not render template"
         Just (builder, _) -> writeBuilder builder
+
+loadData :: Site -> (Text, Text) -> AppHandler (Splices (Splice AppHandler))
+loadData site (f, s) | T.isPrefixOf "id(" s && T.isSuffixOf ")" s && T.isPrefixOf ":" f = do
+  mparam <- getParam (encodeUtf8 (T.drop 1 f))
+  case bsId mparam of
+    Nothing -> passLog' ["Param missing or not an integer: ", f]
+    Just id' -> do
+      let name = fromJust $ (T.stripSuffix ")") =<< (T.stripPrefix "id(" s)
+      mdat <- getDataByName site name
+      case mdat of
+        Nothing -> error $ "Unknown data: " ++ (T.unpack name)
+        Just dat -> do
+          mitem <- getItemById site id'
+          case mitem of
+            Nothing -> passLog' ["Id for item does not correspond to an item: ", tshow id']
+            Just item ->
+              case itemDataId item == dataId dat of
+                False -> passLog' ["Id specified does not correspond to the right data type: ", tshow id', " for data ", name]
+                True ->
+                  return $ T.append "this-" name ## runChildrenWith (itemSplices site dat item)
+ where passLog' a = passLog a >> return mempty
+loadData _ _ = return mempty
