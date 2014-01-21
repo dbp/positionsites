@@ -1,15 +1,7 @@
-<html>
-  <head>
-    <title>A Position Site</title>
-    <script src="/static/jquery-2.0.3.min.js"></script>
-    <script src="/static/edit.js"></script>
-    <link href="/static/site.css" rel="stylesheet" type="text/css"/>
-  </head>
-  <body>
-    <div id="content">
+<head>
+  <script src="/static/jquery-2.0.3.min.js"></script>
+  <script src="/static/edit.js"></script>
+  <link href="/static/site.css" rel="stylesheet" type="text/css"/>
+</head>
 
-      <apply-content/>
-
-    </div>
-  </body>
-</html>
+<apply template="site_base"><apply-content/></apply>

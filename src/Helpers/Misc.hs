@@ -41,3 +41,8 @@ passLog ts = do
 
 updateAt :: Int -> a -> [a] -> [a]
 updateAt n val lst = take n lst ++ [val] ++ drop (n + 1) lst
+
+
+fromRight :: Either a b -> b
+fromRight (Left _) = error "fromRight: expected Right"
+fromRight (Right x) = x

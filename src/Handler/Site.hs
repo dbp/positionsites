@@ -38,21 +38,23 @@ import Helpers.Misc
 import Helpers.Text
 
 sitePath :: Site -> ByteString
-sitePath (Site id' _) = B.append "/site/" (B8.pack (show id'))
+sitePath (Site id' _ _) = B.append "/site/" (B8.pack (show id'))
 
-newSiteForm :: Form Text AppHandler Text
-newSiteForm = "url" .: nonEmptyTextForm
+
+siteForm :: Maybe Site -> Form Text AppHandler (Text, Text)
+siteForm old = (,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old)))
+                   <*> "domain" .: nonEmpty (text (fmap siteUrl old))
 
 newSiteHandler :: AppHandler ()
 newSiteHandler = do
-  r <- runForm "new-site" newSiteForm
+  r <- runForm "new-site" (siteForm Nothing)
   case r of
     (v, Nothing) -> renderWithSplices "site/new" (digestiveSplices v)
-    (_, Just url) -> do
-      mid <- newSite (Site (-1) url)
+    (_, Just (url, base)) -> do
+      mid <- newSite (Site (-1) url base)
       case mid of
         Nothing -> error "Site could not be created"
-        Just site_id -> redirect (sitePath (Site site_id ""))
+        Just site_id -> redirect (sitePath (Site site_id "" ""))
 
 manageSiteHandler :: AppHandler ()
 manageSiteHandler = do
@@ -65,6 +67,7 @@ manageSiteHandler = do
         Nothing -> pass
         Just site ->
           route [("", ifTop $ showSiteHandler site)
+                ,("/edit", editSiteHandler site)
                 ,("/data/new", newDataHandler site)
                 ,("/page/new", newPageHandler site)
                 ,("/page/edit/:id", editPageHandler site)]
@@ -78,6 +81,15 @@ showSiteHandler site = do
     "domain" ## textSplice (siteUrl site)
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
+
+editSiteHandler :: Site -> AppHandler ()
+editSiteHandler site = do
+  r <- runForm "edit-base" (siteForm (Just site))
+  case r of
+    (v, Nothing) -> renderWithSplices "site/edit" (digestiveSplices v)
+    (_, Just (base, domain)) -> do
+      updateSite (site { siteBase = base, siteUrl = domain })
+      redirect (sitePath site)
 
 newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
 newDataForm = (,) <$> "name"   .: nonEmptyTextForm
@@ -454,10 +466,13 @@ renderPage s p = do
         liftIO $ runEitherT $ initHeist $ mempty { hcTemplateLocations =
                                                    [loadTemplates "snaplets/heist/templates/sites"]
                                                  }
-      let newst = addTemplate "page" [Element "apply" [("template", "site")] (docContent html)]
-                  Nothing st
-      let newst' = bindSplices (urlDataSplices <> splices <> defaultLoadTimeSplices) newst
-      res <- renderTemplate newst' "page"
+      let newst = addTemplate "site_base" (docContent
+                  (fromRight (parseHTML "" (encodeUtf8 $ siteBase s)))) Nothing st
+      let newst' = addTemplate "page" [Element "apply" [("template", "site")] (docContent html)]
+                   Nothing newst
+      let newst'' = bindSplices (urlDataSplices <> splices <> defaultLoadTimeSplices) newst'
+
+      res <- renderTemplate newst'' "page"
       case res of
         Nothing -> error "Could not render template"
         Just (builder, _) -> writeBuilder builder

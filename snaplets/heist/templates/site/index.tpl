@@ -19,7 +19,7 @@
     });
   </script>
 
-  <h1 class="title">Dashboard for domain <domain/>.</h1>
+  <h1 class="title">Dashboard for domain <domain/> (<a href="/site/${site_id}/edit">edit</a>).</h1>
 
   <h3 class="section-heading">Data Types (<a href="/site/${site_id}/data/new">add</a>)</h3>
   <div class="section">

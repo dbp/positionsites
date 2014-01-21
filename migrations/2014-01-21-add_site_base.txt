@@ -1,0 +1,8 @@
+Description: (Description here.)
+Created: 2014-01-21 17:02:34.398108 UTC
+Depends: 2014-01-13-base_schema
+Apply:
+  ALTER TABLE sites ADD COLUMN site_base TEXT NOT NULL DEFAULT '<apply-content/>';
+
+Revert:
+  ALTER TABLE sites DROP COLUMN site_base;

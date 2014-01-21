@@ -25,3 +25,4 @@ siteSplices :: Site -> Splices (Splice AppHandler)
 siteSplices s = do
   "id" ## textSplice (tshow (siteId s))
   "domain" ## textSplice (siteUrl s)
+  "base" ## textSplice (siteBase s)

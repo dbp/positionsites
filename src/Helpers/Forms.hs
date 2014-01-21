@@ -11,6 +11,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Data.Text (Text)
+import Text.XmlHtml
 
 import Application
 import Helpers.Text
@@ -47,3 +48,8 @@ fieldForm n spec d = n .: validate (fmap (n,) .
 
 fieldDataExistingForm :: [Item] -> Form Text AppHandler Int
 fieldDataExistingForm items = "item" .: choice (map (\i -> (itemId i, T.concat ["Item ", tshow (itemId i)])) items) Nothing
+
+validateHtml :: Form Text AppHandler Text -> Form Text AppHandler Text
+validateHtml = validate (\x -> case parseHTML "" (T.encodeUtf8 x) of
+                                 Left err -> Error $ T.pack err
+                                 Right _ -> Success x)
