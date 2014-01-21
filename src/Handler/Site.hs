@@ -144,9 +144,17 @@ siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
                               apiIdFieldIndex $ apiListDeleteItem site)
                             ,("/list/:id/:field/set/:index",
                                apiIdFieldIndex $ apiListSetItem site)
-                            ,("/delete/:id/data/:field", apiIdField $ apiDeleteField site)
+                            ,("/delete/:id/data/:field", apiIdField $ apiDeleteDataField site)
                             ,("/set/:id/data/:field/existing", apiIdField $ apiSetDataFieldExisting site)
                             ,("/set/:id/data/:field/new", apiIdField $ apiSetDataFieldNew site)
+                            ,("/list/:id/:field/add/data/existing",
+                              apiIdField $ apiListAddDataExisting site)
+                            ,("/list/:id/:field/add/data/new",
+                              apiIdField $ apiListAddDataNew site)
+                            ,("/list/:id/:field/set/:index/data/existing",
+                              apiIdFieldIndex $ apiListSetDataExisting site)
+                            ,("/list/:id/:field/set/:index/data/new",
+                              apiIdFieldIndex $ apiListSetDataNew site)
                             ]
 
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
@@ -288,7 +296,6 @@ apiListSetItem site item_id field idx =
                                    (modifyListFieldElems (flds ! field) (updateAt idx val)) flds}
                modifyResponse (setResponseCode 201)
                return ()
-  where updateAt n val lst = take n lst ++ [val] ++ drop (n + 1) lst
 
 
 apiSetDataFieldExisting :: Site -> Int -> Text -> AppHandler ()
@@ -331,8 +338,8 @@ apiSetDataFieldNew site item_id field =
                   return ()
 
 
-apiDeleteField :: Site -> Int -> Text -> AppHandler ()
-apiDeleteField site item_id field =
+apiDeleteDataField :: Site -> Int -> Text -> AppHandler ()
+apiDeleteDataField site item_id field =
   itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
     case spec' of
      DataFieldSpec nm ->
@@ -342,6 +349,89 @@ apiDeleteField site item_id field =
          updateItem $ item { itemFields = insert field (DataFieldData Nothing) (itemFields item)}
          modifyResponse (setResponseCode 201)
          return ())
+
+apiListAddDataExisting :: Site -> Int -> Text -> AppHandler ()
+apiListAddDataExisting site item_id field =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     ListFieldSpec (DataFieldSpec nm) -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+           items <- getItems dat
+           r <- runForm "field-data-existing" (fieldDataExistingForm items)
+           case r of
+             (v, Nothing) -> renderWithSplices "api/data/field/existing" (digestiveSplices v)
+             (_, Just id') -> do
+               let flds = itemFields item
+               updateItem $ item { itemFields = insert field (modifyListFieldElems (flds ! field) ((DataFieldData (Just id')):)) flds}
+               modifyResponse (setResponseCode 201)
+               return ()
+
+apiListAddDataNew :: Site -> Int -> Text -> AppHandler ()
+apiListAddDataNew site item_id field =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     ListFieldSpec (DataFieldSpec nm) -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+          r <- runForm "field-data-new" (fieldsForm (kvs (dataFields dat)))
+          case r of
+            (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+            (_, Just flds) -> do
+              mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+              case mid of
+                Nothing -> error "Could not create new item"
+                Just id' -> do
+                  let item_flds = itemFields item
+                  updateItem $ item { itemFields = insert field (modifyListFieldElems (item_flds ! field) (DataFieldData (Just id'):)) item_flds}
+                  modifyResponse (setResponseCode 201)
+                  return ()
+
+apiListSetDataExisting :: Site -> Int -> Text -> Int -> AppHandler ()
+apiListSetDataExisting site item_id field idx =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     ListFieldSpec (DataFieldSpec nm) -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+           items <- getItems dat
+           r <- runForm "field-data-existing" (fieldDataExistingForm items)
+           case r of
+             (v, Nothing) -> renderWithSplices "api/data/field/existing" (digestiveSplices v)
+             (_, Just id') -> do
+               let flds = itemFields item
+               updateItem $ item { itemFields = insert field (modifyListFieldElems (flds ! field) (updateAt idx (DataFieldData (Just id')))) flds}
+               modifyResponse (setResponseCode 201)
+               return ()
+
+
+apiListSetDataNew :: Site -> Int -> Text -> Int -> AppHandler ()
+apiListSetDataNew site item_id field idx =
+  itemDataFieldSpecLookup site item_id field $ \item _dat spec' ->
+    case spec' of
+     ListFieldSpec (DataFieldSpec nm) -> do
+       mdat <- getDataByName site nm
+       case mdat of
+         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
+         Just dat -> do
+          r <- runForm "field-data-new" (fieldsForm (kvs (dataFields dat)))
+          case r of
+            (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+            (_, Just flds) -> do
+              mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+              case mid of
+                Nothing -> error "Could not create new item"
+                Just id' -> do
+                  let item_flds = itemFields item
+                  updateItem $ item { itemFields = insert field (modifyListFieldElems (item_flds ! field) (updateAt idx (DataFieldData (Just id')))) item_flds}
+                  modifyResponse (setResponseCode 201)
+                  return ()
 
 
 routePages :: Site -> [Page] -> AppHandler ()

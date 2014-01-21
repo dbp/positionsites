@@ -86,26 +86,37 @@ itemSplices s d i = (do T.concat ["delete-", dataName d] ## deleteSplice d i)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
 fieldsSplices s d i fields = (T.concat ["id"] ## textSplice (tshow (itemId i))) <>
- (mconcat $
-                               map (\(name, spec) -> do
-                                       T.concat [dataName d, "-", name] ## fldSplice s d i name (M.lookup name (itemFields i))
-                                       if isListFieldSpec spec
-                                          then T.concat ["list-add-", dataName d, "-", name] ## addListFieldSplice i name
-                                          else T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
-                                  fields)
+ (mconcat $ map (\(name, spec) -> do
+              T.concat [dataName d, "-", name] ## fldSplice spec s d i name (M.lookup name (itemFields i))
+              case spec of
+                ListFieldSpec (DataFieldSpec _) -> do
+                  T.concat ["list-add-", dataName d, "-", name, "-existing"] ## addListFieldDataExistingSplice i name
+                  T.concat ["list-add-", dataName d, "-", name, "-new"] ## addListFieldDataNewSplice i name
+                ListFieldSpec _ ->
+                  T.concat ["list-add-", dataName d, "-", name] ## addListFieldSplice i name
+                _ -> T.concat ["set-", dataName d, "-", name] ## setFieldSplice i name)
+            fields)
 
-fldSplice :: Site -> Data -> Item -> Text -> Maybe FieldData -> Splice AppHandler
-fldSplice _ _ _ _ Nothing = textSplice ""
-fldSplice _ _ _ _ (Just (StringFieldData s)) = textSplice s
-fldSplice _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
-fldSplice s d i n (Just (ListFieldData ls)) =
+fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Splice AppHandler
+fldSplice _ _ _ _ _ Nothing = textSplice ""
+fldSplice _ _ _ _ _ (Just (StringFieldData s)) = textSplice s
+fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
+fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
+  mapSplices (runChildrenWith .
+              (\(Just (idx, f)) -> do
+                "delete-element" ## deleteListFieldSplice i n idx
+                "set-element-existing" ## setListFieldDataExistingSplice i n idx
+                "set-element-new" ## setListFieldDataNewSplice i n idx
+                "element" ## fldSplice (DataFieldSpec nm) s d i n (Just f)) .
+              Just) (zip [0..] ls)
+fldSplice (ListFieldSpec inner) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
                 "delete-element" ## deleteListFieldSplice i n idx
                 "set-element" ## setListFieldSplice i n idx
-                "element" ## fldSplice s d i n (Just f)) .
+                "element" ## fldSplice inner s d i n (Just f)) .
               Just) (zip [0..] ls)
-fldSplice s d i name (Just (DataFieldData mid)) =
+fldSplice _ s d i name (Just (DataFieldData mid)) =
   case mid of
     Nothing -> runChildrenWith (shared False)
     Just id' -> do
@@ -118,7 +129,7 @@ fldSplice s d i name (Just (DataFieldData mid)) =
             Nothing -> error "Item without associated data"
             Just dat -> do
               runChildrenWith $
-                (fieldsSplices s d item (M.assocs (dataFields dat))) <>
+                (fieldsSplices s dat item (M.assocs (dataFields dat))) <>
                 (shared True) <>
                 ("delete" ## deleteDataFieldSplice i name)
  where shared e = do "exists" ## ifISplice e
@@ -145,11 +156,23 @@ setFieldSplice i nm = linkSplice (T.concat ["/api/set/", tshow (itemId i), "/", 
 addListFieldSplice :: Item -> Text -> Splice AppHandler
 addListFieldSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add"])
 
+addListFieldDataExistingSplice :: Item -> Text -> Splice AppHandler
+addListFieldDataExistingSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/existing"])
+
+addListFieldDataNewSplice :: Item -> Text -> Splice AppHandler
+addListFieldDataNewSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/new"])
+
 deleteListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
 deleteListFieldSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/delete/", tshow idx])
 
 setListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
 setListFieldSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx])
+
+setListFieldDataExistingSplice :: Item -> Text -> Int -> Splice AppHandler
+setListFieldDataExistingSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/existing"])
+
+setListFieldDataNewSplice :: Item -> Text -> Int -> Splice AppHandler
+setListFieldDataNewSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
 
 deleteDataFieldSplice :: Item -> Text -> Splice AppHandler
 deleteDataFieldSplice i nm = linkSplice (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
