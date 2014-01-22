@@ -1,6 +1,6 @@
 <apply template="base">
 
-  <h1 class="title">Signup</h1>
+  <h1 class="title">Login</h1>
 
   <apply template="user_form"></apply>
 

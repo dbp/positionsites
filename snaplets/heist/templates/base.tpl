@@ -21,6 +21,10 @@
 
       <div id="wrap">
 
+        <div id="auth">
+          <ifLoggedIn><loggedInUser/> <a href="/logout">Logout</a></ifLoggedIn>
+        </div>
+
 
         <apply-content/>
 

@@ -81,7 +81,7 @@ renderAllItems s d = do
 
 itemSplices :: Site -> Data -> Item
             -> Splices (Splice AppHandler)
-itemSplices s d i = (do "delete" ## deleteSplice d i)
+itemSplices s d i = ("delete" ## deleteSplice d i)
                     <> fieldsSplices s d i (M.assocs $ dataFields d)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
