@@ -14,6 +14,7 @@ import Heist.Interpreted (Splice, textSplice, addTemplate
                          ,renderTemplate, bindSplices, bindSplice
                          ,runChildrenWith, lookupSplice)
 import Snap.Snaplet.Heist
+import Snap.Snaplet.Auth
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Text.XmlHtml hiding (render)
@@ -37,6 +38,7 @@ import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
 import Handler.API
+import Handler.Auth
 
 sitePath :: Site -> ByteString
 sitePath (Site id' _ _) = B.append "/site/" (B8.pack (show id'))
@@ -143,9 +145,20 @@ editPageHandler site = do
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
 
+loginGuard :: AppHandler () -> AppHandler ()
+loginGuard hndlr = do
+  li <- with auth isLoggedIn
+  if li
+     then hndlr
+     else do
+       modifyResponse (setResponseCode 401)
+       return ()
+
 siteHandler :: Site -> AppHandler ()
 siteHandler site =
-  route [("/api", siteApiHandler site)
+  route [("/api", loginGuard $ siteApiHandler site)
+        ,("/login", loginHandler)
+        ,("/logout", logoutHandler)
         ,("", do pages <- getSitePages site
                  routePages site pages)]
 
@@ -172,11 +185,29 @@ rebindSplice = do
            modifyHS $ bindSplice new splice
            return []
 
+authLinkSplice :: Splice AppHandler
+authLinkSplice = do
+  li <- lift $ with auth isLoggedIn
+  u <- lift $ fmap rqURI getRequest
+  let url = decodeUtf8 (urlEncode u)
+  return (if li
+            then [Element "a" [("class", "authlink")
+                              ,("href", T.append "/logout?redirect=" url)]
+                              [TextNode "Logout"]]
+            else [Element "a" [("class", "authlink")
+                              ,("href", T.append "/login?redirect=" url)]
+                              [TextNode "Login"]]
+                 )
+
+siteSplices :: Splices (Splice AppHandler)
+siteSplices = do "rebind" ## rebindSplice
+                 "authlink" ## authLinkSplice
+
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = mappend (mconcat $ map (dataSplices s) ds) ("rebind" ## rebindSplice)
+  let splices = mappend (mconcat $ map (dataSplices s) ds) siteSplices
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
