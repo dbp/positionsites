@@ -1,5 +1,5 @@
 #!/bin/bash
 
-/var/www/.cabal/bin/angel /var/www/angel.conf &
+/var/www/positionsites -e production &
 
 echo 0

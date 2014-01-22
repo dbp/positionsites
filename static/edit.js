@@ -1,19 +1,36 @@
 $(function () {
 
   $(document).on("click", "a[data-box=1]", function () {
-    var box = $("<div class='box'>");
+    var box = $("<div class='ps-box'>");
 
-    var close_container = $("<div class='close-container'>");
-    var close = $("<div class='close'>");
-    close_container.append(close);
-    box.append(close_container);
-    close.on("click", function () { box.remove() });
+    var overlay = $("<div class='ps-overlay'>");
+    var close = $("<div class='close'>X</div>");
 
-    var div = $("<div class='inner' class='inner'>");
+    // clicking on background should close
+    overlay.on("click", function () { close.click(); });
+    $(document.body).append(overlay);
+
+    // clicking on close button should close
+    box.append(close);
+    close.on("click", function () {
+      box.remove();
+      overlay.remove();
+    });
+
+    // escape should close
+    $(document).keyup(function(e){
+      if (e.keyCode === 27) {
+        close.click();
+      }
+    });
+
+
+    var div = $("<div class='inner'>");
     box.append(div);
     div.html("Loading...");
 
     $(document.body).append(box);
+
 
     var target = $(this).attr("href");
 

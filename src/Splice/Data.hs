@@ -151,9 +151,10 @@ linkSplice :: Text -> Splice AppHandler
 linkSplice lnk = do
   n <- getParamNode
   return [X.Element "a" [("href", lnk)
-                             ,("data-box", "1")
-                             ,("data-refresh", "page")]
-                             (X.childNodes n)]
+                        ,("class", "ps-link")
+                        ,("data-box", "1")
+                        ,("data-refresh", "page")]
+                        (X.childNodes n)]
 
 newItemSplice :: Data -> Splice AppHandler
 newItemSplice d = linkSplice (T.concat ["/api/new/", tshow (dataId d)])

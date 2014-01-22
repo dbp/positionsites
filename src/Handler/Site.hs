@@ -191,10 +191,10 @@ authLinkSplice = do
   u <- lift $ fmap rqURI getRequest
   let url = decodeUtf8 (urlEncode u)
   return (if li
-            then [Element "a" [("class", "authlink")
+            then [Element "a" [("class", "authlink ps-link")
                               ,("href", T.append "/logout?redirect=" url)]
                               [TextNode "Logout"]]
-            else [Element "a" [("class", "authlink")
+            else [Element "a" [("class", "authlink ps-link")
                               ,("href", T.append "/login?redirect=" url)]
                               [TextNode "Login"]]
                  )
