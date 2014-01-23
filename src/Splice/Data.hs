@@ -147,50 +147,60 @@ fldSplice _ s d i name (Just (DataFieldData mid)) =
                      "set-existing" ## loginGuardSplice $ setDataFieldExistingSplice i name
                      "set-new" ## loginGuardSplice $ setDataFieldNewSplice i name
 
-linkSplice :: Text -> Splice AppHandler
-linkSplice lnk = do
+
+linkSplice :: Text -> Text -> Splice AppHandler
+linkSplice char lnk = do
   n <- getParamNode
   return [X.Element "a" [("href", lnk)
                         ,("class", "ps-link")
                         ,("data-box", "1")
                         ,("data-refresh", "page")]
-                        (X.childNodes n)]
+                        [X.TextNode char]]
+
+editPoint :: Text
+editPoint = "\9998"
+
+addPoint :: Text
+addPoint = "+"
+
+deletePoint :: Text
+deletePoint = "\215"
 
 newItemSplice :: Data -> Splice AppHandler
-newItemSplice d = linkSplice (T.concat ["/api/new/", tshow (dataId d)])
+newItemSplice d = linkSplice addPoint (T.concat ["/api/new/", tshow (dataId d)])
 
 deleteSplice :: Data -> Item -> Splice AppHandler
-deleteSplice d i = linkSplice (T.concat ["/api/delete/", tshow (itemId i)])
+deleteSplice d i = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i)])
 
 setFieldSplice :: Item -> Text -> Splice AppHandler
-setFieldSplice i nm = linkSplice (T.concat ["/api/set/", tshow (itemId i), "/", nm])
+setFieldSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/", nm])
 
 addListFieldSplice :: Item -> Text -> Splice AppHandler
-addListFieldSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add"])
+addListFieldSplice i nm = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add"])
 
 addListFieldDataExistingSplice :: Item -> Text -> Splice AppHandler
-addListFieldDataExistingSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/existing"])
+addListFieldDataExistingSplice i nm = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/existing"])
 
 addListFieldDataNewSplice :: Item -> Text -> Splice AppHandler
-addListFieldDataNewSplice i nm = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/new"])
+addListFieldDataNewSplice i nm = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/new"])
 
 deleteListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
-deleteListFieldSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/delete/", tshow idx])
+deleteListFieldSplice i nm idx = linkSplice deletePoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/delete/", tshow idx])
 
 setListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
-setListFieldSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx])
+setListFieldSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx])
 
 setListFieldDataExistingSplice :: Item -> Text -> Int -> Splice AppHandler
-setListFieldDataExistingSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/existing"])
+setListFieldDataExistingSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/existing"])
 
 setListFieldDataNewSplice :: Item -> Text -> Int -> Splice AppHandler
-setListFieldDataNewSplice i nm idx = linkSplice (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
+setListFieldDataNewSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
 
 deleteDataFieldSplice :: Item -> Text -> Splice AppHandler
-deleteDataFieldSplice i nm = linkSplice (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
+deleteDataFieldSplice i nm = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
 
 setDataFieldExistingSplice :: Item -> Text -> Splice AppHandler
-setDataFieldExistingSplice i nm = linkSplice (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing"])
+setDataFieldExistingSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing"])
 
 setDataFieldNewSplice :: Item -> Text -> Splice AppHandler
-setDataFieldNewSplice i nm = linkSplice (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new"])
+setDataFieldNewSplice i nm = linkSplice "\177" (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new"])
