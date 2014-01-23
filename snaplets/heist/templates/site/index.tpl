@@ -1,6 +1,8 @@
 <apply template="base">
   <script>
     $(function () {
+
+
     $(".body-textarea").each(function (_, elem) {
     var editor = CodeMirror.fromTextArea(elem, {
       mode: "text/html",

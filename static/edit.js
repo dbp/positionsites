@@ -4,7 +4,7 @@ $(function () {
     var box = $("<div class='ps-box'>");
 
     var overlay = $("<div class='ps-overlay'>");
-    var close = $("<div class='close'>X</div>");
+    var close = $("<div class='close'>&times;</div>");
 
     // clicking on background should close
     overlay.on("click", function () { close.click(); });

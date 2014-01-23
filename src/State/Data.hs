@@ -127,6 +127,13 @@ instance FromField (Map Text FieldData) where
 instance ToField (Map Text FieldData) where
   toField flds = Plain (fromLazyByteString $ encode flds)
 
+shortName :: Item -> Text
+shortName item = T.intercalate " " (map formatShort (M.elems ifs))
+  where ifs = itemFields item
+        formatShort (StringFieldData s) = s
+        formatShort (NumberFieldData n) = tshow n
+        formatShort _ = ""
+
 -- Lookup functions
 getSiteData :: Site -> AppHandler [Data]
 getSiteData s = query "select id, site_id, name, fields from data where site_id = ?" (Only $ siteId s)
