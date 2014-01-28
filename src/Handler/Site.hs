@@ -11,6 +11,7 @@ import Snap.Core
 import Snap.Snaplet
 import Snap.Util.FileServe
 import Heist
+import Heist.Splices.Html
 import Heist.Interpreted (Splice, textSplice, addTemplate
                          ,renderTemplate, bindSplices, bindSplice
                          ,runChildrenWith, lookupSplice)
@@ -215,12 +216,13 @@ authLinkSplice = do
 siteSplices :: Splices (Splice AppHandler)
 siteSplices = do "rebind" ## rebindSplice
                  "authlink" ## authLinkSplice
+                 "html" ## htmlImpl
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = mappend (mconcat $ map (dataSplices s) ds) siteSplices
+  let splices = (mconcat $ map (dataSplices s) ds) <> siteSplices
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
