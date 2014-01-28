@@ -44,15 +44,16 @@ $(function () {
 
     function load_box(resp, status, xhr) {
       div.html(resp);
-      div.find("form").attr("action", target).ajaxForm({success: handle_response}).on("submit", function () {
-        $(this).ajaxSubmit();
+      div.find("form").attr("action", target).ajaxForm({
+        success: handle_response,
+        beforeSubmit: function () {
         div.html("Submitting...");
-        return false;
+        }
       });
     }
 
     function handle_response(resp, status, xhr) {
-        console.log(xhr.status);
+      console.log(xhr.status);
       if (xhr.status === 201) {
         close.click();
         refresh(refresh_option);
