@@ -23,6 +23,24 @@
 
   <h1 class="title">Dashboard for domain <domain/> (<a href="/site/${site_id}/edit">edit</a>).</h1>
 
+  <h3 class="section-heading">Headers (<a href="/site/${site_id}/header/new">add</a>)</h3>
+  <div class="section">
+    <headers>
+      <div class="section-elem">
+        <div class="section-name"><name/> (<is-css>CSS</is-css><is-js>Javascript</is-js>)</div>
+        <table class="section-table">
+          <tr>
+            <td class="name">Meta</td>
+            <td>
+              <a href="/site/${site_id}/header/edit/${id}">edit</a>
+            </td>
+          </tr>
+        </table>
+      </div> <!-- .section-elem -->
+    </headers>
+  </div> <!-- .section -->
+
+
   <h3 class="section-heading">Data Types (<a href="/site/${site_id}/data/new">add</a>)</h3>
   <div class="section">
     <data>

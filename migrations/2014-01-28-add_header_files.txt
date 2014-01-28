@@ -1,0 +1,14 @@
+Description: (Description here.)
+Created: 2014-01-28 17:24:21.257283 UTC
+Depends: 2014-01-13-base_schema
+Apply:
+  CREATE TABLE header_files (
+    id serial primary key,
+    site_id integer not null references sites(id),
+    type text not null,
+    name text not null,
+    content text not null
+  );
+
+Revert:
+  DROP TABLE header_files;

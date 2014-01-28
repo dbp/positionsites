@@ -36,8 +36,10 @@ import State.Page
 import State.Data
 import State.Image
 import State.User
+import State.HeaderFile
 import Splice.Data
 import Splice.Page
+import Splice.HeaderFile
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -77,17 +79,22 @@ manageSiteHandler = do
                 ,("/edit", editSiteHandler site)
                 ,("/data/new", newDataHandler site)
                 ,("/page/new", newPageHandler site)
-                ,("/page/edit/:id", editPageHandler site)]
+                ,("/page/edit/:id", editPageHandler site)
+                ,("/header/new", newHeaderHandler site)
+                ,("/header/edit/:id", editHeaderHandler site)
+                ]
 
 showSiteHandler :: Site -> AppHandler ()
 showSiteHandler site = do
   ds <- getSiteData site
   pgs <- getSitePages site
+  hdrs <- getSiteHeaders site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
+    "headers" ## manageHeadersSplice hdrs
 
 editSiteHandler :: Site -> AppHandler ()
 editSiteHandler site = do
@@ -146,6 +153,41 @@ editPageHandler site = do
                                , pageBody = body})
               redirect (sitePath site)
 
+headerForm :: Maybe (Text,HeaderFileType,Text) -> Form Text AppHandler (Text, HeaderFileType, Text)
+headerForm p = (,,) <$> "name" .: nonEmpty (text $ fmap fst3 p)
+                    <*> "type" .: choice [ (HeaderCSS, "CSS")
+                                         , (HeaderJavascript, "Javascript")] (fmap snd3 p)
+                    <*> "content" .: validateHtml (nonEmpty (text $ fmap trd3 p))
+
+newHeaderHandler :: Site -> AppHandler ()
+newHeaderHandler site = do
+  r <- runForm "new-header" $ headerForm Nothing
+  case r of
+    (v, Nothing) -> renderWithSplices "header/new" (digestiveSplices v)
+    (_, Just (name, typ, content)) -> do
+      newHeader (HeaderFile (-1) (siteId site) typ name content)
+      redirect (sitePath site)
+
+editHeaderHandler :: Site -> AppHandler ()
+editHeaderHandler site = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just id' -> do
+      mp <- getHeaderById id' site
+      case mp of
+        Nothing -> pass
+        Just header -> do
+          r <- runForm "edit-header" $ headerForm $ Just (headerFileName header
+                                                         ,headerFileType header
+                                                         ,headerFileContent header)
+          case r of
+            (v, Nothing) -> renderWithSplices "header/edit" (digestiveSplices v)
+            (_, Just (name, typ, content)) -> do
+              updateHeader (header { headerFileName = name
+                                   , headerFileType = typ
+                                   , headerFileContent = content})
+              redirect (sitePath site)
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
 
@@ -177,6 +219,7 @@ siteHandler site =
         ,("/logout", logoutHandler)
         ,("/signup", signupHandler)
         ,("/images/:name", imagesHandler site)
+        ,("/header/:id", headerHandler site)
         ,("", do pages <- getSitePages site
                  routePages site pages)]
 
@@ -190,6 +233,16 @@ imagesHandler site =
          do repo <- getImageRepository
             serveFile ((T.unpack repo) ++ "/" ++ (B8.unpack name))
 
+headerHandler :: Site -> AppHandler ()
+headerHandler site =
+  do i <- getParam "id"
+     case i >>= (readSafe . T.unpack . decodeUtf8) of
+       Nothing -> pass
+       Just id' -> do hf <- getHeaderById id' site
+                      case hf of
+                        Nothing -> pass
+                        Just header ->
+                          writeText (headerFileContent header)
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
@@ -229,16 +282,36 @@ authLinkSplice = do
                                     ]
                                    [TextNode "Login"]])
 
-siteSplices :: Splices (Splice AppHandler)
-siteSplices = do "rebind" ## rebindSplice
-                 "authlink" ## authLinkSplice
-                 "html" ## htmlImpl
+headersSplice :: Site -> Splice AppHandler
+headersSplice site = do
+  hfs <- lift $ getSiteHeaders site
+  return (map renderHeader hfs)
+ where renderHeader hf = case headerFileType hf of
+                           HeaderCSS -> Element "link"
+                                          [("href",
+                                           T.concat ["/header/", tshow (headerFileId hf),
+                                                     "/src.css"])
+                                          ,("rel", "stylesheet")
+                                          ,("type", "text/css")] []
+                           HeaderJavascript -> Element "script"
+                                                       [("src",
+                                                         T.concat ["/header/",
+                                                                  tshow (headerFileId hf),
+                                                                  "/src.js"])
+                                                        ,("type", "text/javascript")] []
+
+
+siteSplices :: Site ->  Splices (Splice AppHandler)
+siteSplices site = do "rebind" ## rebindSplice
+                      "authlink" ## authLinkSplice
+                      "html" ## htmlImpl
+                      "headers" ## headersSplice site
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = (mconcat $ map (dataSplices s) ds) <> siteSplices
+  let splices = (mconcat $ map (dataSplices s) ds) <> siteSplices s
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
