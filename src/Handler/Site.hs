@@ -3,10 +3,12 @@
 module Handler.Site where
 
 import Prelude hiding (lookup)
-import Control.Applicative
-import Data.Map (Map, assocs, fromList, lookup, insert, (!))
+import qualified Prelude as L (lookup)
+import Control.Applicative hiding (empty)
+import Data.Map (Map, assocs, fromList, lookup, insert, (!), empty)
 import Data.Monoid
 import Data.Maybe
+import Data.List (intersperse)
 import Snap.Core
 import Snap.Snaplet
 import Snap.Util.FileServe
@@ -37,12 +39,15 @@ import State.Data
 import State.Image
 import State.User
 import State.HeaderFile
+import State.Blob
 import Splice.Data
 import Splice.Page
 import Splice.HeaderFile
+import Splice.Blob
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
+import Helpers.State
 import Handler.API
 import Handler.Auth
 
@@ -82,6 +87,8 @@ manageSiteHandler = do
                 ,("/page/edit/:id", editPageHandler site)
                 ,("/header/new", newHeaderHandler site)
                 ,("/header/edit/:id", editHeaderHandler site)
+                ,("/blob/new", newBlobHandler site)
+                ,("/blob/edit/:id", editBlobHandler site)
                 ]
 
 showSiteHandler :: Site -> AppHandler ()
@@ -89,12 +96,14 @@ showSiteHandler site = do
   ds <- getSiteData site
   pgs <- getSitePages site
   hdrs <- getSiteHeaders site
+  blobs <- getSiteBlobs site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
     "headers" ## manageHeadersSplice hdrs
+    "blobs" ## manageBlobsSplice blobs
 
 editSiteHandler :: Site -> AppHandler ()
 editSiteHandler site = do
@@ -105,89 +114,101 @@ editSiteHandler site = do
       updateSite (site { siteBase = base, siteUrl = domain })
       redirect (sitePath site)
 
+newGenHandler :: Site
+               -> Form Text AppHandler a
+               -> ByteString
+               -> (a -> AppHandler ())
+               -> AppHandler ()
+newGenHandler site form tmpl creat = do
+  r <- runForm "new-gen" form
+  case r of
+    (v, Nothing) -> renderWithSplices tmpl (digestiveSplices v)
+    (_, Just x) -> do
+      creat x
+      redirect (sitePath site)
+
+editGenHandler :: Site
+               -> (Int -> Site -> AppHandler (Maybe a))
+               -> Formlet Text AppHandler a
+               -> ByteString
+               -> (a -> AppHandler ())
+               -> AppHandler ()
+editGenHandler site getter form tmpl updt = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just id' -> do
+      mo <- getter id' site
+      case mo of
+        Nothing -> pass
+        Just obj -> do
+          r <- runForm "edit-gen" $ form (Just obj)
+          case r of
+            (v, Nothing) -> renderWithSplices tmpl (digestiveSplices v)
+            (_, Just x) -> do
+              updt x
+              redirect (sitePath site)
+
 newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
 newDataForm = (,) <$> "name"   .: nonEmptyTextForm
                   <*> "fields" .: jsonMapForm
 
 newDataHandler :: Site -> AppHandler ()
-newDataHandler site = do
-  r <- runForm "new-data" newDataForm
-  case r of
-    (v, Nothing) -> renderWithSplices "data/new" (digestiveSplices v)
-    (_, Just (name, fields)) -> do
-      newData (Data (-1) (siteId site) name fields)
-      redirect (sitePath site)
+newDataHandler site = newGenHandler site newDataForm "data/new" $
+  \(name, fields) -> void $ newData (Data (-1) (siteId site) name fields)
 
-pageForm :: Maybe (Text,Text,Text) -> Form Text AppHandler (Text, Text, Text)
-pageForm p = (,,) <$> "flat" .: nonEmpty (text $ fmap fst3 p)
-                   <*> "structured" .: nonEmpty (text $ fmap snd3 p)
-                   <*> "body" .: validateHtml (nonEmpty (text $ fmap trd3 p))
+pageForm :: Site -> Maybe Page -> Form Text AppHandler Page
+pageForm site p = mkPg <$> "flat" .: nonEmpty (text $ fmap (decodeUtf8 . pageFlat) p)
+                       <*> "structured" .: nonEmpty (text $ fmap pageStructured p)
+                       <*> "body" .: validateHtml (nonEmpty (text $ fmap pageBody p))
+  where mkPg f s b = case p of
+                       Nothing -> Page (-1) (siteId site) (encodeUtf8 f) s b
+                       Just pg -> pg { pageFlat = encodeUtf8 f, pageStructured = s, pageBody = b }
 
 newPageHandler :: Site -> AppHandler ()
-newPageHandler site = do
-  r <- runForm "new-page" $ pageForm Nothing
-  case r of
-    (v, Nothing) -> renderWithSplices "page/new" (digestiveSplices v)
-    (_, Just (flat, structured, body)) -> do
-      newPage (Page (-1) (siteId site) (encodeUtf8 flat) structured body)
-      redirect (sitePath site)
+newPageHandler site = newGenHandler site (pageForm site Nothing) "page/new" (void . newPage)
 
 editPageHandler :: Site -> AppHandler ()
-editPageHandler site = do
-  mid <- getParam "id"
-  case bsId mid of
-    Nothing -> pass
-    Just id' -> do
-      mp <- getPageById id' site
-      case mp of
-        Nothing -> pass
-        Just page -> do
-          r <- runForm "edit-page" $ pageForm $ Just ( decodeUtf8 $ pageFlat page
-                                                     , pageStructured page
-                                                     , pageBody page)
-          case r of
-            (v, Nothing) -> renderWithSplices "page/edit" (digestiveSplices v)
-            (_, Just (flat, structured, body)) -> do
-              updatePage (page { pageFlat = encodeUtf8 flat
-                               , pageStructured = structured
-                               , pageBody = body})
-              redirect (sitePath site)
+editPageHandler site = editGenHandler site getPageById (pageForm site) "page/edit" updatePage
 
-headerForm :: Maybe (Text,HeaderFileType,Text) -> Form Text AppHandler (Text, HeaderFileType, Text)
-headerForm p = (,,) <$> "name" .: nonEmpty (text $ fmap fst3 p)
-                    <*> "type" .: choice [ (HeaderCSS, "CSS")
-                                         , (HeaderJavascript, "Javascript")] (fmap snd3 p)
-                    <*> "content" .: validateHtml (nonEmpty (text $ fmap trd3 p))
+headerForm :: Site -> Maybe HeaderFile -> Form Text AppHandler HeaderFile
+headerForm site h = mkHeader <$> "name" .: nonEmpty (text $ fmap headerFileName h)
+                             <*> "type" .: choice [ (HeaderCSS, "CSS")
+                                                  , (HeaderJavascript, "Javascript")]
+                                                  (fmap headerFileType h)
+                             <*> "content" .: validateHtml (nonEmpty (text $ fmap headerFileContent h))
+  where mkHeader n t c = case h of
+                           Nothing -> HeaderFile (-1) (siteId site) t n c
+                           Just header -> header { headerFileType = t
+                                                 , headerFileName = n
+                                                 , headerFileContent = c
+                                                 }
 
 newHeaderHandler :: Site -> AppHandler ()
-newHeaderHandler site = do
-  r <- runForm "new-header" $ headerForm Nothing
-  case r of
-    (v, Nothing) -> renderWithSplices "header/new" (digestiveSplices v)
-    (_, Just (name, typ, content)) -> do
-      newHeader (HeaderFile (-1) (siteId site) typ name content)
-      redirect (sitePath site)
+newHeaderHandler site = newGenHandler site (headerForm site Nothing) "header/new" (void . newHeader)
 
 editHeaderHandler :: Site -> AppHandler ()
-editHeaderHandler site = do
-  mid <- getParam "id"
-  case bsId mid of
-    Nothing -> pass
-    Just id' -> do
-      mp <- getHeaderById id' site
-      case mp of
-        Nothing -> pass
-        Just header -> do
-          r <- runForm "edit-header" $ headerForm $ Just (headerFileName header
-                                                         ,headerFileType header
-                                                         ,headerFileContent header)
-          case r of
-            (v, Nothing) -> renderWithSplices "header/edit" (digestiveSplices v)
-            (_, Just (name, typ, content)) -> do
-              updateHeader (header { headerFileName = name
-                                   , headerFileType = typ
-                                   , headerFileContent = content})
-              redirect (sitePath site)
+editHeaderHandler site = editGenHandler site getHeaderById (headerForm site) "header/edit" updateHeader
+
+blobForm :: Site -> Maybe Blob -> Form Text AppHandler Blob
+blobForm site b = mkBlob <$> "name" .: nonEmpty (text (fmap blobName b))
+                         <*> "type" .: choice [(BlobPlain, "Plain Text")
+                                              ,(BlobMarkdown, "Markdown")
+                                              ,(BlobHTML, "HTML")] (fmap blobType b)
+                         <*> "admin" .: bool (fmap blobAdmin b)
+  where mkBlob n t a = case b of
+                         Nothing -> Blob (-1) (siteId site) n "" t a
+                         Just blob -> blob { blobName = n
+                                           , blobType = t
+                                           , blobAdmin = a
+                                           }
+
+newBlobHandler :: Site -> AppHandler ()
+newBlobHandler site = newGenHandler site (blobForm site Nothing) "blob/new" (void . newBlob)
+
+editBlobHandler :: Site -> AppHandler ()
+editBlobHandler site = editGenHandler site getBlobById (blobForm site) "blob/edit" updateBlob
+
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
 
@@ -301,11 +322,50 @@ headersSplice site = do
                                                         ,("type", "text/javascript")] []
 
 
+blobSplice :: Site -> Splice AppHandler
+blobSplice site = do
+  node <- getParamNode
+  case "name" `L.lookup` (elementAttrs node) of
+    Nothing -> return []
+    Just name -> do
+      b <- lift $ getBlobByName site name
+      case b of
+        Nothing -> return []
+        Just blob -> return (renderBlob blob)
+  where renderBlob b = case blobType b of
+                         BlobPlain -> newlineReplace (blobContent b)
+                         BlobHTML -> case parseHTML "" (encodeUtf8 $ blobContent b)  of
+                                       Left err -> []
+                                       Right html -> docContent html
+                         BlobMarkdown -> error "Don't support markdown yet."
+        newlineReplace t = intersperse (Element "br" [] []) (map TextNode $ T.splitOn "\n" t)
+
+setBlobSplice :: Site -> Splice AppHandler
+setBlobSplice site = do
+  node <- getParamNode
+  case "name" `L.lookup` (elementAttrs node) of
+    Nothing -> return []
+    Just name -> do
+      b <- lift $ getBlobByName site name
+      case b of
+        Nothing -> return []
+        Just blob ->
+          if blobAdmin blob
+             -- force an admin check
+             then loginGuardSplice' (Item (-1) (-1) (-1) (-1) empty) $ do
+               linkSplice editPoint (T.concat ["/api/blob/set/", tshow (blobId blob)])
+             -- just a regular login check
+             else loginGuardSplice $ do
+               linkSplice editPoint (T.concat ["/api/blob/set/", tshow (blobId blob)])
+
+
 siteSplices :: Site ->  Splices (Splice AppHandler)
 siteSplices site = do "rebind" ## rebindSplice
                       "authlink" ## authLinkSplice
                       "html" ## htmlImpl
                       "headers" ## headersSplice site
+                      "blob" ## blobSplice site
+                      "set-blob" ## setBlobSplice site
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do

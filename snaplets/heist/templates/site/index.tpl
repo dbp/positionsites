@@ -86,7 +86,35 @@
         </table>
       </div>
     </pages>
+  </div> <!-- .section -->
 
+
+  <h3 class="section-heading">Blobs (<a href="/site/${site_id}/blob/new">add</a>)</h3>
+  <div class="section">
+    <blobs>
+      <div class="section-elem">
+        <div class="section-name"><name/> (
+          <is-plain>Plain</is-plain>
+          <is-html>HTML</is-html>
+          <is-markdown>Markdown</is-markdown>
+          )</div>
+        <table class="section-table">
+          <tr>
+            <td class="name">Admins only</td>
+            <td>
+              <is-admin-only>Yes</is-admin-only>
+              <not-admin-only>No</not-admin-only>
+            </td>
+          </tr>
+          <tr>
+            <td class="name">Meta</td>
+            <td>
+              <a href="/site/${site_id}/blob/edit/${id}">edit</a>
+            </td>
+          </tr>
+        </table>
+      </div> <!-- .section-elem -->
+    </blobs>
   </div> <!-- .section -->
 
 </apply>

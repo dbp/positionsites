@@ -1,0 +1,12 @@
+Description: add site id, make content not null, add type
+Created: 2014-01-28 22:17:45.205518 UTC
+Depends: 2014-01-13-base_schema
+Apply:
+  ALTER TABLE blobs ADD COLUMN site_id integer not null references sites(id);
+  ALTER TABLE blobs ALTER COLUMN content SET NOT NULL;
+  ALTER TABLE blobs ADD COLUMN type text not null;
+
+Revert:
+  ALTER TABLE blobs DROP COLUMN site_id;
+  ALTER TABLE blobs ALTER COLUMN content DROP NOT NULL;
+  ALTER TABLE blobs DROP COLUMN type;

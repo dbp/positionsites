@@ -26,28 +26,26 @@ import State.User
 import Helpers.Text
 import Helpers.Misc
 
-
 loginGuardSplice :: Splice AppHandler -> Splice AppHandler
 loginGuardSplice s = do
-  li <- lift $ with auth isLoggedIn
-  if li
-     then s
-     else return []
+ li <- lift $ with auth isLoggedIn
+ if li
+    then s
+    else return []
 
 loginGuardSplice' :: Item -> Splice AppHandler -> Splice AppHandler
 loginGuardSplice' item s = do
-  mau <- lift $ with auth currentUser
-  case mau >>= userId >>= (readSafe . T.unpack . unUid) of
-    Nothing -> return []
-    Just id' -> do
-      mu <- lift $ getUser id'
-      case mu of
-        Nothing -> return []
-        Just u ->
-          if siteUserAdmin u || siteUserId u == itemOwnerId item
-                    then s
-                    else return []
-
+ mau <- lift $ with auth currentUser
+ case mau >>= userId >>= (readSafe . T.unpack . unUid) of
+   Nothing -> return []
+   Just id' -> do
+     mu <- lift $ getUser id'
+     case mu of
+       Nothing -> return []
+       Just u ->
+         if siteUserAdmin u || siteUserId u == itemOwnerId item
+                   then s
+                   else return []
 manageDataSplice :: [Data] -> Splice AppHandler
 manageDataSplice = mapSplices (runChildrenWith . manageDatumSplices)
 
@@ -192,8 +190,7 @@ imageSplice id' = do node <- getParamNode
                                                             , ("height", tshow height)] []]
 
 linkSplice :: Text -> Text -> Splice AppHandler
-linkSplice char lnk = do
-  n <- getParamNode
+linkSplice char lnk =
   return [X.Element "a" [("href", lnk)
                         ,("class", "ps-link")
                         ,("data-box", "1")

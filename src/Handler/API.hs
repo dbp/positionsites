@@ -32,6 +32,7 @@ import State.Page
 import State.Data
 import State.Image
 import State.User
+import State.Blob
 import Splice.Data
 import Splice.Page
 import Helpers.Forms
@@ -42,7 +43,8 @@ import Helpers.Text
 
 siteApiHandler :: Site -> SiteUser -> AppHandler ()
 siteApiHandler site user =
-  route [("/new/:id", apiId $ apiNewItem site user)
+  route [("/blob/set/:id", apiId $ apiBlobSet site user)
+        ,("/new/:id", apiId $ apiNewItem site user)
         ,("/delete/:id", apiId $ apiDeleteItem site user)
         ,("/set/:id/image/:field", apiIdFieldItem site (apiSetImageField user))
         ,("/set/:id/:field", apiIdField $ apiSetFieldItem site user)
@@ -137,6 +139,28 @@ authcheck user item hndlr =
      else forbidden
 
 -- | All API Handlers
+
+setBlobForm :: Blob -> Form Text AppHandler Blob
+setBlobForm (Blob i si n c t a) = Blob <$> (pure i) <*> (pure si) <*> (pure n)
+                                       <*> "content" .: nonEmpty (text (Just c))
+                                       <*> (pure t) <*> (pure a)
+
+apiBlobSet :: Site -> SiteUser -> Int -> AppHandler ()
+apiBlobSet site user blob_id = do
+    b <- getBlobById blob_id site
+    case b of
+      Nothing -> passLog ["Blob id not valid."]
+      Just blob -> case blobAdmin blob of
+                     False -> run blob
+                     True -> if siteUserAdmin user
+                                then run blob
+                                else forbidden
+  where run blob = do r <- runForm "set-blob" (setBlobForm blob)
+                      case r of
+                        (v, Nothing) -> renderWithSplices "api/blob/set" (digestiveSplices v)
+                        (_, Just blob') -> do updateBlob blob'
+                                              modifyResponse (setResponseCode 201)
+                                              return ()
 
 apiNewItem :: Site -> SiteUser -> Int -> AppHandler ()
 apiNewItem site user data_id = do
