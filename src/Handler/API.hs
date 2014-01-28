@@ -8,6 +8,7 @@ import Data.Map (fromList, lookup, insert, (!))
 import Data.Monoid
 import Snap.Core
 import Snap.Snaplet.Heist
+import Snap.Snaplet.Auth
 import Snap.Util.FileUploads
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
@@ -30,6 +31,7 @@ import State.Site
 import State.Page
 import State.Data
 import State.Image
+import State.User
 import Splice.Data
 import Splice.Page
 import Helpers.Forms
@@ -38,22 +40,24 @@ import Helpers.Text
 
 -- | Routes for the sites API
 
-siteApiHandler :: Site -> AppHandler ()
-siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
-                            ,("/delete/:id", apiId $ apiDeleteItem site)
-                            ,("/set/:id/image/:field", apiIdFieldItem site apiSetImageField)
-                            ,("/set/:id/:field", apiIdField $ apiSetFieldItem site)
-                            ,("/list/:id/:field/add", apiList site apiListAddItem)
-                            ,("/list/:id/:field/delete/:index", apiListIndex site apiListDeleteItem)
-                           ,("/list/:id/:field/set/:index", apiListIndex site apiListSetItem)
-                           ,("/delete/:id/data/:field", apiIdFieldItem site apiDeleteDataField)
-                           ,("/set/:id/data/:field/existing", apiIdFieldItem site apiSetDataFieldExisting)
-                           ,("/set/:id/data/:field/new", apiIdFieldItem site apiSetDataFieldNew)
-                           ,("/list/:id/:field/add/data/existing", apiList site apiListAddDataExisting)
-                           ,("/list/:id/:field/add/data/new", apiList site apiListAddDataNew)
-                           ,("/list/:id/:field/set/:index/data/existing", apiListIndex site apiListSetDataExisting)
-                           ,("/list/:id/:field/set/:index/data/new", apiListIndex site apiListSetDataNew)
-                 ]
+siteApiHandler :: Site -> SiteUser -> AppHandler ()
+siteApiHandler site user =
+  route [("/new/:id", apiId $ apiNewItem site user)
+        ,("/delete/:id", apiId $ apiDeleteItem site user)
+        ,("/set/:id/image/:field", apiIdFieldItem site (apiSetImageField user))
+        ,("/set/:id/:field", apiIdField $ apiSetFieldItem site user)
+        ,("/list/:id/:field/add", apiList site (apiListAddItem user))
+        ,("/list/:id/:field/delete/:index", apiListIndex site (apiListDeleteItem user))
+        ,("/list/:id/:field/set/:index", apiListIndex site (apiListSetItem user))
+        ,("/delete/:id/data/:field", apiIdFieldItem site (apiDeleteDataField user))
+        ,("/set/:id/data/:field/existing", apiIdFieldItem site (apiSetDataFieldExisting user))
+        ,("/set/:id/data/:field/new", apiIdFieldItem site (apiSetDataFieldNew user))
+        ,("/list/:id/:field/add/data/existing", apiList site (apiListAddDataExisting user))
+        ,("/list/:id/:field/add/data/new", apiList site (apiListAddDataNew user))
+        ,("/list/:id/:field/set/:index/data/existing",
+         apiListIndex site (apiListSetDataExisting user))
+        ,("/list/:id/:field/set/:index/data/new", apiListIndex site (apiListSetDataNew user))
+        ]
 
 -- | Helpers for looking up common parameters and loading data
 
@@ -126,10 +130,16 @@ apiListIndex site hndlr = apiIdFieldIndex $ \item_id field index ->
       ListFieldSpec spec' -> hndlr site item_id field index item dat spec'
       _ -> passLog ["Tried to use a non-list field with list API endpoints."]
 
+authcheck :: SiteUser -> Item -> AppHandler () -> AppHandler ()
+authcheck user item hndlr =
+  if siteUserAdmin user || siteUserId user == itemOwnerId item
+     then hndlr
+     else forbidden
+
 -- | All API Handlers
 
-apiNewItem :: Site -> Int -> AppHandler ()
-apiNewItem site data_id = do
+apiNewItem :: Site -> SiteUser -> Int -> AppHandler ()
+apiNewItem site user data_id = do
   d <- getDataById site data_id
   case d of
     Nothing -> passLog ["Data id not valid."]
@@ -139,36 +149,38 @@ apiNewItem site data_id = do
         (v, Nothing) ->
           renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
         (_, Just flds) -> do
-          newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+          newItem (Item (-1) (dataId dat) (dataSiteId dat) (siteUserId user) (fromList flds))
           modifyResponse (setResponseCode 201)
           render "api/data/new_success"
 
-apiDeleteItem :: Site -> Int -> AppHandler ()
-apiDeleteItem site item_id =do
+apiDeleteItem :: Site -> SiteUser -> Int -> AppHandler ()
+apiDeleteItem site user item_id = do
   mit <- getItemById site item_id
   case mit of
     Nothing -> passLog ["Item id not valid"]
     Just item ->
-      (method GET $ render "api/data/delete")
-      <|>
-      (method POST $ do
-        deleteItem item
-        modifyResponse (setResponseCode 201)
-        return ())
+      authcheck user item $
+        (method GET $ render "api/data/delete")
+        <|>
+        (method POST $ do
+          deleteItem item
+          modifyResponse (setResponseCode 201)
+          return ())
 
-apiSetFieldItem :: Site -> Int -> Text -> AppHandler ()
-apiSetFieldItem site item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
-  do r <- runForm "set-field" (fieldForm field spec (Just (itemFields item ! field)))
-     case r of
-       (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
-                                                        <> fieldsSplice (field, spec))
-       (_, Just (_n, val)) -> do
-           updateItem $ item { itemFields = insert field val (itemFields item)}
-           modifyResponse (setResponseCode 201)
-           return ()
+apiSetFieldItem :: Site -> SiteUser -> Int -> Text -> AppHandler ()
+apiSetFieldItem site user item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
+  authcheck user item $ do
+    r <- runForm "set-field" (fieldForm field spec (Just (itemFields item ! field)))
+    case r of
+      (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
+                                                  <> fieldsSplice (field, spec))
+      (_, Just (_n, val)) -> do
+          updateItem $ item { itemFields = insert field val (itemFields item)}
+          modifyResponse (setResponseCode 201)
+          return ()
 
-apiListAddItem :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListAddItem _site _item_id field item _dat spec = do
+apiListAddItem :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListAddItem user _site _item_id field item _dat spec = authcheck user item $ do
   r <- runForm "list-add" (fieldForm field spec Nothing)
   case r of
     (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
@@ -180,8 +192,8 @@ apiListAddItem _site _item_id field item _dat spec = do
       modifyResponse (setResponseCode 201)
       return ()
 
-apiListDeleteItem :: Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListDeleteItem _site _item_id field idx item _dat _spec =
+apiListDeleteItem :: SiteUser -> Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListDeleteItem user _site _item_id field idx item _dat _spec = authcheck user item $
   (method GET $ render "api/data/delete")
   <|>
   (method POST $ do
@@ -192,8 +204,8 @@ apiListDeleteItem _site _item_id field idx item _dat _spec =
     return ())
   where removeAt n lst = take n lst ++ drop (n + 1) lst
 
-apiDeleteDataField :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiDeleteDataField site item_id field item _dat spec' =
+apiDeleteDataField :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiDeleteDataField user site item_id field item _dat spec' = authcheck user item $
   case spec' of
    DataFieldSpec nm ->
      (method GET $ render "api/data/delete")
@@ -203,8 +215,8 @@ apiDeleteDataField site item_id field item _dat spec' =
        modifyResponse (setResponseCode 201)
        return ())
 
-apiListSetItem :: Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec ->  AppHandler ()
-apiListSetItem site item_id field idx item _dat spec = do
+apiListSetItem :: SiteUser -> Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec ->  AppHandler ()
+apiListSetItem user site item_id field idx item _dat spec = authcheck user item $ do
   let flds = itemFields item
   r <- runForm "list-set" (fieldForm field spec
                            (Just ((getListFieldElems $ flds ! field) !! idx)))
@@ -218,15 +230,15 @@ apiListSetItem site item_id field idx item _dat spec = do
       return ()
 
 
-apiExistingDataHandler :: Site  -> Text -> Item -> FieldSpec -> (Int -> FieldData -> FieldData) -> AppHandler ()
-apiExistingDataHandler site field item spec' field_update =
+apiExistingDataHandler :: SiteUser -> Site  -> Text -> Item -> FieldSpec -> (Int -> FieldData -> FieldData) -> AppHandler ()
+apiExistingDataHandler user site field item spec' field_update = authcheck user item $
   case spec' of
     DataFieldSpec nm -> do
       mdat <- getDataByName site nm
       case mdat of
         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
         Just dat -> do
-          items <- getItems dat
+          items <- if (siteUserAdmin user) then getItems dat else getUserItems dat user
           r <- runForm "field-data-existing" (fieldDataExistingForm items)
           case r of
             (v, Nothing) -> renderWithSplices "api/data/field/existing" (digestiveSplices v)
@@ -236,21 +248,21 @@ apiExistingDataHandler site field item spec' field_update =
               modifyResponse (setResponseCode 201)
               return ()
 
-apiSetDataFieldExisting :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiSetDataFieldExisting site _item_id field item _dat spec' =
-  apiExistingDataHandler site field item  spec' $ \id' _ -> (DataFieldData (Just id'))
+apiSetDataFieldExisting :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiSetDataFieldExisting user site _item_id field item _dat spec' =
+  apiExistingDataHandler user site field item  spec' $ \id' _ -> (DataFieldData (Just id'))
 
-apiListAddDataExisting :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListAddDataExisting site _item_id field item _dat spec' =
-  apiExistingDataHandler site field item spec' $ \id' fld -> modifyListFieldElems fld ((DataFieldData (Just id')):)
+apiListAddDataExisting :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListAddDataExisting user site _item_id field item _dat spec' =
+  apiExistingDataHandler user site field item spec' $ \id' fld -> modifyListFieldElems fld ((DataFieldData (Just id')):)
 
-apiListSetDataExisting :: Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListSetDataExisting site item_id field idx item _dat spec' =
-  apiExistingDataHandler site field item spec' $ \id' fld ->
+apiListSetDataExisting :: SiteUser -> Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListSetDataExisting user site item_id field idx item _dat spec' =
+  apiExistingDataHandler user site field item spec' $ \id' fld ->
     modifyListFieldElems fld (updateAt idx (DataFieldData (Just id')))
 
-apiNewDataHandler :: Site -> Text -> Item -> FieldSpec -> (Int -> FieldData -> FieldData) -> AppHandler ()
-apiNewDataHandler site field item spec' field_update =
+apiNewDataHandler :: SiteUser -> Site -> Text -> Item -> FieldSpec -> (Int -> FieldData -> FieldData) -> AppHandler ()
+apiNewDataHandler user site field item spec' field_update = authcheck user item $
   case spec' of
     DataFieldSpec nm -> do
       mdat <- getDataByName site nm
@@ -270,22 +282,22 @@ apiNewDataHandler site field item spec' field_update =
                  modifyResponse (setResponseCode 201)
                  return ()
 
-apiSetDataFieldNew :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiSetDataFieldNew site item_id field item _dat spec' =
-  apiNewDataHandler site field item spec' $ \id' _fld -> (DataFieldData (Just id'))
+apiSetDataFieldNew :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiSetDataFieldNew user site item_id field item _dat spec' =
+  apiNewDataHandler user site field item spec' $ \id' _fld -> (DataFieldData (Just id'))
 
 
-apiListAddDataNew :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListAddDataNew site item_id field item _dat spec' =
-  apiNewDataHandler site field item spec' $ \id' fld -> modifyListFieldElems fld (DataFieldData (Just id'):)
+apiListAddDataNew :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListAddDataNew user site item_id field item _dat spec' =
+  apiNewDataHandler user site field item spec' $ \id' fld -> modifyListFieldElems fld (DataFieldData (Just id'):)
 
-apiListSetDataNew :: Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListSetDataNew site item_id field idx item _dat spec' =
-  apiNewDataHandler site field item spec' $ \id' fld ->
+apiListSetDataNew :: SiteUser -> Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListSetDataNew user site item_id field idx item _dat spec' =
+  apiNewDataHandler user site field item spec' $ \id' fld ->
     modifyListFieldElems fld (updateAt idx (DataFieldData (Just id')))
 
-apiSetImageField :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiSetImageField site item_id field item _dat spec' =
+apiSetImageField :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiSetImageField user site item_id field item _dat spec' = authcheck user item $
   case spec' of
     ImageFieldSpec -> do
       r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize (2^24) defaultUploadPolicy}) "image-form" imageForm

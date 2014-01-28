@@ -35,6 +35,7 @@ import State.Site
 import State.Page
 import State.Data
 import State.Image
+import State.User
 import Splice.Data
 import Splice.Page
 import Helpers.Forms
@@ -157,11 +158,24 @@ loginGuard hndlr = do
        modifyResponse (setResponseCode 401)
        return ()
 
+loginGuard' :: (SiteUser -> AppHandler ()) -> AppHandler ()
+loginGuard' hndlr = do
+  u <- with auth currentUser
+  case u >>= userId of
+    Nothing -> forbidden
+    Just id' -> do
+      su <- getUser (read (T.unpack (unUid id')))
+      case su of
+        Nothing -> forbidden
+        Just siteuser ->
+          hndlr siteuser
+
 siteHandler :: Site -> AppHandler ()
 siteHandler site =
-  route [("/api", loginGuard $ siteApiHandler site)
+  route [("/api", loginGuard' $ siteApiHandler site)
         ,("/login", loginHandler)
         ,("/logout", logoutHandler)
+        ,("/signup", signupHandler)
         ,("/images/:name", imagesHandler site)
         ,("", do pages <- getSitePages site
                  routePages site pages)]
@@ -201,17 +215,19 @@ rebindSplice = do
 
 authLinkSplice :: Splice AppHandler
 authLinkSplice = do
-  li <- lift $ with auth isLoggedIn
+  mau <- lift $ with auth currentUser
   u <- lift $ fmap rqURI getRequest
   let url = decodeUtf8 (urlEncode u)
-  return (if li
-            then [Element "a" [("class", "authlink ps-link")
-                              ,("href", T.append "/logout?redirect=" url)]
-                              [TextNode "Logout"]]
-            else [Element "a" [("class", "authlink ps-link")
-                              ,("href", T.append "/login?redirect=" url)]
-                              [TextNode "Login"]]
-                 )
+  return (case mau of
+            Just au -> [Element "a" [("class", "authlink ps-link")
+                                    ,("href", T.append "/logout?redirect=" url)
+                                    ,("title", userLogin au)
+                                    ]
+                                  [TextNode "Logout"]]
+            Nothing -> [Element "a" [("class", "authlink ps-link")
+                                    ,("href", T.append "/login?redirect=" url)
+                                    ]
+                                   [TextNode "Login"]])
 
 siteSplices :: Splices (Splice AppHandler)
 siteSplices = do "rebind" ## rebindSplice

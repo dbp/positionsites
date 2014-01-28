@@ -6,12 +6,13 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Char8 (unpack)
 import Data.Map (Map, assocs)
 import Data.List (sort)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, fromJust)
 import Data.Text (Text)
 import qualified Data.Text as T (concat, unpack)
 import Application (AppHandler)
-import Snap.Core (pass)
+import Snap.Core (pass, modifyResponse, setResponseCode)
 import "mtl" Control.Monad.Trans (liftIO)
+import Snap.Snaplet.Auth (AuthUser(..), UserId(..))
 
 
 fst3 :: (a, b, c) -> a
@@ -20,7 +21,6 @@ snd3 :: (a, b, c) -> b
 snd3 (a, b, c) = b
 trd3 :: (a, b, c) -> c
 trd3 (a, b, c) = c
-
 
 readSafe :: Read a => String -> Maybe a
 readSafe = fmap fst . listToMaybe . reads
@@ -46,3 +46,8 @@ updateAt n val lst = take n lst ++ [val] ++ drop (n + 1) lst
 fromRight :: Either a b -> b
 fromRight (Left _) = error "fromRight: expected Right"
 fromRight (Right x) = x
+
+
+forbidden :: AppHandler ()
+forbidden = do modifyResponse (setResponseCode 401)
+               return ()

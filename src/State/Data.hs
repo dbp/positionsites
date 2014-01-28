@@ -29,6 +29,7 @@ import qualified Data.Vector as V
 
 import Application
 import State.Site
+import State.User
 import Helpers.State
 import Helpers.Misc
 import Helpers.Text
@@ -159,6 +160,9 @@ getDataByName s nm = singleQuery "select id, site_id, name, fields from data whe
 
 getItems :: Data -> AppHandler [Item]
 getItems d = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ? order by id desc" (dataId d, dataSiteId d)
+
+getUserItems :: Data -> SiteUser -> AppHandler [Item]
+getUserItems d u = query "select id, data_id, site_id, owner_id, fields from items where data_id = ? and site_id = ? and owner_id = ? order by id desc" (dataId d, dataSiteId d, siteUserId u)
 
 itemCount :: Data -> AppHandler Int
 itemCount d = numberQuery "select count(*) from items where data_id = ? and site_id = ?" (dataId d, dataSiteId d)

@@ -22,6 +22,7 @@ import Application
 import State.Data
 import State.Site
 import State.Image
+import State.User
 import Helpers.Text
 import Helpers.Misc
 
@@ -33,6 +34,19 @@ loginGuardSplice s = do
      then s
      else return []
 
+loginGuardSplice' :: Item -> Splice AppHandler -> Splice AppHandler
+loginGuardSplice' item s = do
+  mau <- lift $ with auth currentUser
+  case mau >>= userId >>= (readSafe . T.unpack . unUid) of
+    Nothing -> return []
+    Just id' -> do
+      mu <- lift $ getUser id'
+      case mu of
+        Nothing -> return []
+        Just u ->
+          if siteUserAdmin u || siteUserId u == itemOwnerId item
+                    then s
+                    else return []
 
 manageDataSplice :: [Data] -> Splice AppHandler
 manageDataSplice = mapSplices (runChildrenWith . manageDatumSplices)
@@ -96,7 +110,7 @@ renderAllItems s d = do
 
 itemSplices :: Site -> Data -> Item
             -> Splices (Splice AppHandler)
-itemSplices s d i = ("delete" ## loginGuardSplice $ deleteSplice d i)
+itemSplices s d i = ("delete" ## loginGuardSplice' i $ deleteSplice d i)
                     <> fieldsSplices s d i (M.assocs $ dataFields d)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
@@ -105,13 +119,13 @@ fieldsSplices s d i fields = (T.concat ["id"] ## textSplice (tshow (itemId i))) 
               name ## fldSplice spec s d i name (M.lookup name (itemFields i))
               case spec of
                 ListFieldSpec (DataFieldSpec _) -> do
-                  T.concat ["add-", name, "-existing"] ## loginGuardSplice $ addListFieldDataExistingSplice i name
-                  T.concat ["add-", name, "-new"] ## loginGuardSplice $ addListFieldDataNewSplice i name
+                  T.concat ["add-", name, "-existing"] ## loginGuardSplice' i $ addListFieldDataExistingSplice i name
+                  T.concat ["add-", name, "-new"] ## loginGuardSplice' i $ addListFieldDataNewSplice i name
                 ListFieldSpec _ ->
-                  T.concat ["add-",  name] ## loginGuardSplice $ addListFieldSplice i name
+                  T.concat ["add-",  name] ## loginGuardSplice' i $ addListFieldSplice i name
                 ImageFieldSpec ->
-                  T.concat ["set-", name] ## loginGuardSplice $ imageSetFieldSplice i name
-                _ -> T.concat ["set-", name] ## loginGuardSplice $ setFieldSplice i name)
+                  T.concat ["set-", name] ## loginGuardSplice' i $ imageSetFieldSplice i name
+                _ -> T.concat ["set-", name] ## loginGuardSplice' i $ setFieldSplice i name)
             fields)
 
 fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Splice AppHandler
@@ -122,16 +136,16 @@ fldSplice _ _ _ _ _ (Just (ImageFieldData id')) = imageSplice id'
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
-                "delete" ## loginGuardSplice $ deleteListFieldSplice i n idx
-                "set-existing" ## loginGuardSplice $ setListFieldDataExistingSplice i n idx
-                "set-new" ## loginGuardSplice $ setListFieldDataNewSplice i n idx
+                "delete" ## loginGuardSplice' i $ deleteListFieldSplice i n idx
+                "set-existing" ## loginGuardSplice' i $ setListFieldDataExistingSplice i n idx
+                "set-new" ## loginGuardSplice' i $ setListFieldDataNewSplice i n idx
                 "element" ## fldSplice (DataFieldSpec nm) s d i n (Just f)) .
               Just) (zip [0..] ls)
 fldSplice (ListFieldSpec inner) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
-                "delete" ## loginGuardSplice $ deleteListFieldSplice i n idx
-                "set" ## loginGuardSplice $ setListFieldSplice i n idx
+                "delete" ## loginGuardSplice' i $ deleteListFieldSplice i n idx
+                "set" ## loginGuardSplice' i $ setListFieldSplice i n idx
                 "element" ## fldSplice inner s d i n (Just f)) .
               Just) (zip [0..] ls)
 fldSplice _ s d i name (Just (DataFieldData mid)) =
@@ -149,10 +163,10 @@ fldSplice _ s d i name (Just (DataFieldData mid)) =
               runChildrenWith $
                 (fieldsSplices s dat item (M.assocs (dataFields dat))) <>
                 (shared True) <>
-                ("delete" ## loginGuardSplice $ deleteDataFieldSplice i name)
+                ("delete" ## loginGuardSplice' i $ deleteDataFieldSplice i name)
  where shared e = do "exists" ## ifISplice e
-                     "set-existing" ## loginGuardSplice $ setDataFieldExistingSplice i name
-                     "set-new" ## loginGuardSplice $ setDataFieldNewSplice i name
+                     "set-existing" ## loginGuardSplice' i $ setDataFieldExistingSplice i name
+                     "set-new" ## loginGuardSplice' i $ setDataFieldNewSplice i name
 
 
 -- TODO(dbp 2014-01-27): make this MUCH safer.
