@@ -43,7 +43,9 @@ Executable positionsites
     either,
     digestive-functors,
     digestive-functors-snap,
-    digestive-functors-heist
+    digestive-functors-heist,
+    configurator,
+    gd
 
   if flag(old-base)
     build-depends:

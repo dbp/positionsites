@@ -9,6 +9,7 @@ import Data.Monoid
 import Data.Maybe
 import Snap.Core
 import Snap.Snaplet
+import Snap.Util.FileServe
 import Heist
 import Heist.Interpreted (Splice, textSplice, addTemplate
                          ,renderTemplate, bindSplices, bindSplice
@@ -32,6 +33,7 @@ import Application
 import State.Site
 import State.Page
 import State.Data
+import State.Image
 import Splice.Data
 import Splice.Page
 import Helpers.Forms
@@ -50,10 +52,10 @@ siteForm old = (,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old
 
 newSiteHandler :: AppHandler ()
 newSiteHandler = do
-  r <- runForm "new-site" (siteForm Nothing)
+  r <- runForm "new-site" (siteForm (Just (Site (-1) "" "<authlink/>\n\n<apply-content/>")))
   case r of
     (v, Nothing) -> renderWithSplices "site/new" (digestiveSplices v)
-    (_, Just (url, base)) -> do
+    (_, Just (base, url)) -> do
       mid <- newSite (Site (-1) url base)
       case mid of
         Nothing -> error "Site could not be created"
@@ -159,8 +161,19 @@ siteHandler site =
   route [("/api", loginGuard $ siteApiHandler site)
         ,("/login", loginHandler)
         ,("/logout", logoutHandler)
+        ,("/images/:name", imagesHandler site)
         ,("", do pages <- getSitePages site
                  routePages site pages)]
+
+
+imagesHandler :: Site -> AppHandler ()
+imagesHandler site =
+  do n <- getParam "name"
+     case n of
+       Nothing -> pass
+       Just name ->
+         do repo <- getImageRepository
+            serveFile ((T.unpack repo) ++ "/" ++ (B8.unpack name))
 
 
 routePages :: Site -> [Page] -> AppHandler ()

@@ -2,7 +2,6 @@
 
 module State.Page where
 
-import Control.Monad (void)
 import Control.Applicative
 import Snap.Snaplet.PostgresqlSimple
 import Data.ByteString (ByteString)

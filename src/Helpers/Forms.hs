@@ -53,3 +53,9 @@ validateHtml :: Form Text AppHandler Text -> Form Text AppHandler Text
 validateHtml = validate (\x -> case parseHTML "" (T.encodeUtf8 x) of
                                  Left err -> Error $ T.pack err
                                  Right _ -> Success x)
+
+
+imageForm :: Form Text AppHandler FilePath
+imageForm = "file" .: validate required file
+  where required Nothing = Error "File is required."
+        required (Just p) = Success p

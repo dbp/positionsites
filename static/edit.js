@@ -44,8 +44,8 @@ $(function () {
 
     function load_box(resp, status, xhr) {
       div.html(resp);
-      div.find("form").on("submit", function () {
-        $.post(target, $(this).serialize(), handle_response);
+      div.find("form").attr("action", target).ajaxForm({success: handle_response}).on("submit", function () {
+        $(this).ajaxSubmit();
         div.html("Submitting...");
         return false;
       });

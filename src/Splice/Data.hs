@@ -21,6 +21,7 @@ import Heist.Splices
 import Application
 import State.Data
 import State.Site
+import State.Image
 import Helpers.Text
 import Helpers.Misc
 
@@ -58,6 +59,9 @@ fieldsSplice (n, StringFieldSpec) = do
 fieldsSplice (n, NumberFieldSpec) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "text"
+fieldsSplice (n, ImageFieldSpec) = do
+  "field-ref" ## textSplice n
+  "field-type" ## textSplice "hidden"
 fieldsSplice (n, ListFieldSpec et) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "hidden"
@@ -105,6 +109,8 @@ fieldsSplices s d i fields = (T.concat ["id"] ## textSplice (tshow (itemId i))) 
                   T.concat ["add-", name, "-new"] ## loginGuardSplice $ addListFieldDataNewSplice i name
                 ListFieldSpec _ ->
                   T.concat ["add-",  name] ## loginGuardSplice $ addListFieldSplice i name
+                ImageFieldSpec ->
+                  T.concat ["set-", name] ## loginGuardSplice $ imageSetFieldSplice i name
                 _ -> T.concat ["set-", name] ## loginGuardSplice $ setFieldSplice i name)
             fields)
 
@@ -112,6 +118,7 @@ fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Spl
 fldSplice _ _ _ _ _ Nothing = textSplice ""
 fldSplice _ _ _ _ _ (Just (StringFieldData s)) = textSplice s
 fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
+fldSplice _ _ _ _ _ (Just (ImageFieldData id')) = imageSplice id'
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
@@ -147,6 +154,28 @@ fldSplice _ s d i name (Just (DataFieldData mid)) =
                      "set-existing" ## loginGuardSplice $ setDataFieldExistingSplice i name
                      "set-new" ## loginGuardSplice $ setDataFieldNewSplice i name
 
+
+-- TODO(dbp 2014-01-27): make this MUCH safer.
+imageSplice :: Int -> Splice AppHandler
+imageSplice id' = do node <- getParamNode
+                     case node of
+                       (X.Element _ attrs _) ->
+                         case lookup "size" attrs of
+                           Nothing -> return []
+                           Just size ->
+                             do let (w, h) = if T.isInfixOf "x" size
+                                      then let ps = T.splitOn "x" size
+                                           in (read $ T.unpack (ps !! 0), read $ T.unpack (ps !! 1))
+                                      else (read $ T.unpack size, read $ T.unpack size) :: (Int, Int)
+                                im <- lift $ getImageById id'
+                                case im of
+                                  Nothing -> return []
+                                  Just image -> do
+                                    let url = getImageSizePath image w h
+                                    let (width, height) = fixSizes (imageOrigWidth image) (imageOrigHeight image) w h
+                                    return [X.Element "img" [ ("src", url)
+                                                            , ("width", tshow width)
+                                                            , ("height", tshow height)] []]
 
 linkSplice :: Text -> Text -> Splice AppHandler
 linkSplice char lnk = do
@@ -194,7 +223,7 @@ setListFieldDataExistingSplice :: Item -> Text -> Int -> Splice AppHandler
 setListFieldDataExistingSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/existing"])
 
 setListFieldDataNewSplice :: Item -> Text -> Int -> Splice AppHandler
-setListFieldDataNewSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
+setListFieldDataNewSplice i nm idx = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
 
 deleteDataFieldSplice :: Item -> Text -> Splice AppHandler
 deleteDataFieldSplice i nm = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
@@ -203,4 +232,7 @@ setDataFieldExistingSplice :: Item -> Text -> Splice AppHandler
 setDataFieldExistingSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing"])
 
 setDataFieldNewSplice :: Item -> Text -> Splice AppHandler
-setDataFieldNewSplice i nm = linkSplice "\177" (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new"])
+setDataFieldNewSplice i nm = linkSplice addPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new"])
+
+imageSetFieldSplice :: Item -> Text -> Splice AppHandler
+imageSetFieldSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/image/", nm])

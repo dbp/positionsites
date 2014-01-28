@@ -8,6 +8,7 @@ import Data.Map (fromList, lookup, insert, (!))
 import Data.Monoid
 import Snap.Core
 import Snap.Snaplet.Heist
+import Snap.Util.FileUploads
 import "mtl" Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Text.XmlHtml hiding (render)
@@ -20,11 +21,15 @@ import qualified Data.ByteString as B
 import Text.Digestive
 import Text.Digestive.Snap hiding (method)
 import Text.Digestive.Heist
+import Graphics.GD hiding (newImage, Image)
+import qualified Graphics.GD as GD
+import Data.List (isSuffixOf)
 
 import Application
 import State.Site
 import State.Page
 import State.Data
+import State.Image
 import Splice.Data
 import Splice.Page
 import Helpers.Forms
@@ -36,6 +41,7 @@ import Helpers.Text
 siteApiHandler :: Site -> AppHandler ()
 siteApiHandler site = route [("/new/:id", apiId $ apiNewItem site)
                             ,("/delete/:id", apiId $ apiDeleteItem site)
+                            ,("/set/:id/image/:field", apiIdFieldItem site apiSetImageField)
                             ,("/set/:id/:field", apiIdField $ apiSetFieldItem site)
                             ,("/list/:id/:field/add", apiList site apiListAddItem)
                             ,("/list/:id/:field/delete/:index", apiListIndex site apiListDeleteItem)
@@ -277,3 +283,47 @@ apiListSetDataNew :: Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec -> 
 apiListSetDataNew site item_id field idx item _dat spec' =
   apiNewDataHandler site field item spec' $ \id' fld ->
     modifyListFieldElems fld (updateAt idx (DataFieldData (Just id')))
+
+apiSetImageField :: Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiSetImageField site item_id field item _dat spec' =
+  case spec' of
+    ImageFieldSpec -> do
+      r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize (2^24) defaultUploadPolicy}) "image-form" imageForm
+      case r of
+        (v, Nothing) -> renderWithSplices "api/data/image" (digestiveSplices v)
+        (_, Just path) -> do
+          im <- newImage (siteId site)
+          case im of
+            Nothing -> error "Could not create image."
+            Just image -> do
+              repo <- getImageRepository
+              let lf = loadFileSmart path
+              case lf of
+                Nothing -> error "Cannot support non-jpg or png"
+                Just loadFile -> do
+                  file <- liftIO (loadFile path)
+                  (width, height) <- liftIO (imageSize file)
+                  makeSizes file image width height repo standardSizes
+                  updateImage image { imageFormats = standardSizes
+                                    , imageExtension = "png"
+                                    , imageOrigWidth = width
+                                    , imageOrigHeight = height }
+                  let flds = itemFields item
+                  updateItem $ item { itemFields = insert field (ImageFieldData (imageId image)) flds}
+                  modifyResponse (setResponseCode 201)
+                  return ()
+  where loadFileSmart path = if isSuffixOf ".jpg" path
+                                then Just loadJpegFile
+                                else if isSuffixOf ".png" path
+                                        then Just loadPngFile
+                                        else Nothing
+        getExtension = T.pack . reverse . (takeWhile (/= '.')) . reverse
+
+makeSizes :: GD.Image -> Image -> Int -> Int ->  Text -> [(Int, (Int, Int))] -> AppHandler ()
+makeSizes _    _   _    _    _    []                    = return ()
+makeSizes file img maxw maxh repo ((i, (wid, heig)):xs) = do
+  if maxw > wid && maxh > heig
+     then let (neww, newh) = fixSizes maxw maxh wid heig
+          in liftIO $ resizeImage neww newh file >>= savePngFile (buildImagePath img repo i)
+     else liftIO $ savePngFile (buildImagePath img repo i) file
+  makeSizes file img maxw maxh repo xs

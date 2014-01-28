@@ -1,0 +1,14 @@
+Description: add table for images
+Created: 2014-01-27 22:52:43.875988 UTC
+Depends: 2014-01-21-add_site_base 2014-01-13-add_data_name 2014-01-13-add_body_to_pages 2014-01-13-base_schema
+Apply:
+  CREATE TABLE images (
+    id serial primary key,
+    site_id integer not null references sites(id),
+    salt text not null default md5(random()::text),
+    extension text not null,
+    formats text not null
+  );
+
+Revert:
+  DROP TABLE images;

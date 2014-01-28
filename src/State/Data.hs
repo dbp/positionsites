@@ -43,12 +43,17 @@ data Data = Data { dataId :: Int
 instance FromRow Data where
   fromRow = Data <$> field <*> field <*> field <*> field
 
-data FieldSpec = StringFieldSpec | NumberFieldSpec | ListFieldSpec FieldSpec | DataFieldSpec Text
-                 deriving (Show, Eq, Typeable, Ord)
+data FieldSpec = StringFieldSpec
+               | NumberFieldSpec
+               | ImageFieldSpec
+               | ListFieldSpec FieldSpec
+               | DataFieldSpec Text
+  deriving (Show, Eq, Typeable, Ord)
 
 instance FromJSON FieldSpec where
      parseJSON (String "number") = return NumberFieldSpec
      parseJSON (String "string") = return StringFieldSpec
+     parseJSON (String "image") = return ImageFieldSpec
      parseJSON (Array arr)       = if V.length arr == 1
                                       then ListFieldSpec <$> (parseJSON (arr V.! 0))
                                       else mzero
@@ -59,6 +64,7 @@ instance FromJSON FieldSpec where
 instance ToJSON FieldSpec where
      toJSON NumberFieldSpec = String "number"
      toJSON StringFieldSpec = String "string"
+     toJSON ImageFieldSpec = String "image"
      toJSON (ListFieldSpec sp) = Array (V.fromList [toJSON sp])
      toJSON (DataFieldSpec nm) = object ["data" .= nm]
 
@@ -71,8 +77,8 @@ instance FromField (Map Text FieldSpec) where
 
 fieldToBs :: FieldSpec -> ByteString
 fieldToBs StringFieldSpec = "string"
-
 fieldToBs NumberFieldSpec = "number"
+fieldToBs ImageFieldSpec = "image"
 
 instance ToField [FieldSpec] where
   toField flds = Plain (fromByteString $ B8.intercalate "," $ map fieldToBs flds)
@@ -80,17 +86,23 @@ instance ToField [FieldSpec] where
 
 parseSpec :: FieldSpec -> Text -> Maybe FieldData
 parseSpec StringFieldSpec s = Just $ StringFieldData s
+parseSpec ImageFieldSpec i = Just $ ImageFieldData (-1)
 parseSpec NumberFieldSpec s = fmap NumberFieldData (readSafe (unpack s))
 parseSpec (ListFieldSpec _) s = Just $ ListFieldData []
 parseSpec (DataFieldSpec _) s = Just $ DataFieldData Nothing
 
-data FieldData = StringFieldData Text | NumberFieldData Int | ListFieldData [FieldData] | DataFieldData (Maybe Int)
-                 deriving (Show, Eq, Typeable, Ord)
+data FieldData = StringFieldData Text
+               | NumberFieldData Int
+               | ImageFieldData Int
+               | ListFieldData [FieldData]
+               | DataFieldData (Maybe Int)
+   deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
 
 renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
 renderFieldData (NumberFieldData n) = tshow n
+renderFieldData (ImageFieldData id') = tshow id'
 renderFieldData (ListFieldData elems) = T.concat $ ["["] ++ [T.intercalate ", " (map renderFieldData elems)] ++ ["]"]
 renderFieldData (DataFieldData mid) = T.concat ["data(", maybe "" tshow mid, ")"]
 

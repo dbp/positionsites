@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-28 02:37:21.410195 UTC
+Depends: 2014-01-27-add-images 2014-01-21-add_site_base 2014-01-13-add_data_name 2014-01-13-add_body_to_pages 2014-01-13-base_schema
+Apply:
+  ALTER TABLE images ADD COLUMN original_width integer not null;
+  ALTER TABLE images ADD COLUMN original_height integer not null;
+
+Revert:
+  ALTER TABLE images DROP COLUMN original_width;
+  ALTER TABLE images DROP COLUMN original_height;
