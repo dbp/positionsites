@@ -132,20 +132,36 @@ fldSplice _ _ _ _ _ (Just (StringFieldData s)) = textSplice s
 fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
 fldSplice _ _ _ _ _ (Just (ImageFieldData id')) = imageSplice id'
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
+  let len = length ls
+  in
   mapSplices (runChildrenWith .
               (\(Just (idx, f)) -> do
                 "delete" ## loginGuardSplice' i $ deleteListFieldSplice i n idx
                 "set-existing" ## loginGuardSplice' i $ setListFieldDataExistingSplice i n idx
                 "set-new" ## loginGuardSplice' i $ setListFieldDataNewSplice i n idx
-                "element" ## fldSplice (DataFieldSpec nm) s d i n (Just f)) .
+                "element" ## fldSplice (DataFieldSpec nm) s d i n (Just f)
+                if idx /= 0
+                   then "prev" ## loginGuardSplice' i $ swapListItemSplice i n idx (idx - 1)
+                   else "prev" ## ifISplice False
+                if idx /= len - 1
+                   then "next" ## loginGuardSplice' i $ swapListItemSplice i n idx (idx + 1)
+                   else "next" ## ifISplice False) .
               Just) (zip [0..] ls)
 fldSplice (ListFieldSpec inner) s d i n (Just (ListFieldData ls)) =
+  let len = length ls
+  in
   mapSplices (runChildrenWith .
-              (\(Just (idx, f)) -> do
-                "delete" ## loginGuardSplice' i $ deleteListFieldSplice i n idx
-                "set" ## loginGuardSplice' i $ setListFieldSplice i n idx
-                "element" ## fldSplice inner s d i n (Just f)) .
-              Just) (zip [0..] ls)
+             (\(Just (idx, f)) -> do
+               "delete" ## loginGuardSplice' i $ deleteListFieldSplice i n idx
+               "set" ## loginGuardSplice' i $ setListFieldSplice i n idx
+               "element" ## fldSplice inner s d i n (Just f)
+               if idx /= 0
+                  then "prev" ## loginGuardSplice' i $ swapListItemSplice i n idx (idx - 1)
+                  else "prev" ## ifISplice False
+               if idx /= len - 1
+                  then "next" ## loginGuardSplice' i $ swapListItemSplice i n idx (idx + 1)
+                  else "next" ## ifISplice False) .
+             Just) (zip [0..] ls)
 fldSplice _ s d i name (Just (DataFieldData mid)) =
   case mid of
     Nothing -> runChildrenWith (shared False)
@@ -190,12 +206,23 @@ imageSplice id' = do node <- getParamNode
                                                             , ("height", tshow height)] []]
 
 linkSplice :: Text -> Text -> Splice AppHandler
-linkSplice char lnk =
+linkSplice char = linkSplice' [X.TextNode char]
+
+linkSplice' :: [X.Node] -> Text -> Splice AppHandler
+linkSplice' nodes lnk =
   return [X.Element "a" [("href", lnk)
-                        ,("class", "ps-link")
-                        ,("data-box", "1")
-                        ,("data-refresh", "page")]
-                        [X.TextNode char]]
+                       ,("class", "ps-link")
+                       ,("data-box", "1")
+                       ,("data-refresh", "page")]
+                       nodes]
+
+actionSplice :: [X.Node] -> Text -> Splice AppHandler
+actionSplice nodes lnk =
+  return [X.Element "a" [("href", lnk)
+                      ,("class", "ps-link")
+                      ,("data-action", "1")
+                      ,("data-refresh", "page")]
+                      nodes]
 
 editPoint :: Text
 editPoint = "\9998"
@@ -247,3 +274,17 @@ setDataFieldNewSplice i nm = linkSplice addPoint (T.concat ["/api/set/", tshow (
 
 imageSetFieldSplice :: Item -> Text -> Splice AppHandler
 imageSetFieldSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/image/", nm])
+
+swapListItemSplice :: Item -> Text -> Int -> Int -> Splice AppHandler
+swapListItemSplice i nm idxa idxb =
+  do n <- getParamNode
+     actionSplice (X.elementChildren n)
+      (T.concat ["/api/list/"
+                , tshow (itemId i)
+                , "/"
+                , nm
+                , "/swap/"
+                , tshow idxa
+                , "/"
+                , tshow idxb
+                ])

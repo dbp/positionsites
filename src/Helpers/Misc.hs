@@ -25,6 +25,8 @@ trd3 (a, b, c) = c
 readSafe :: Read a => String -> Maybe a
 readSafe = fmap fst . listToMaybe . reads
 
+breadSafe :: Read a => ByteString -> Maybe a
+breadSafe = readSafe . unpack
 
 kvs :: (Ord k, Ord v) => Map k v -> [(k, v)]
 kvs = sort . assocs
@@ -51,3 +53,13 @@ fromRight (Right x) = x
 forbidden :: AppHandler ()
 forbidden = do modifyResponse (setResponseCode 401)
                return ()
+
+swapList :: Int -> Int -> [a] -> [a]
+swapList ia ib lst = swap' ia ib lst 0 lst
+ where
+  swap' ia ib orig c [] = []
+  swap' ia ib orig c (x:xs) = if c == ia
+                                 then (orig !! ib) : (swap' ia ib orig (c+1) xs)
+                                 else if c == ib
+                                         then (orig !! ia) : (swap' ia ib orig (c+1) xs)
+                                         else x : (swap' ia ib orig (c+1) xs)

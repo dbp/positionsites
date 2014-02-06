@@ -370,6 +370,23 @@ setBlobSplice site = do
                linkSplice editPoint (T.concat ["/api/blob/set/", tshow (blobId blob)])
 
 
+isUrlSplice :: Splice AppHandler
+isUrlSplice = do node <- getParamNode
+                 case getAttribute "url" node of
+                   Nothing -> return []
+                   Just u -> do url <- fmap rqURI getRequest
+                                if u == (decodeUtf8 url)
+                                   then return (elementChildren node)
+                                   else return []
+prefixUrlSplice :: Splice AppHandler
+prefixUrlSplice = do node <- getParamNode
+                     case getAttribute "url" node of
+                       Nothing -> return []
+                       Just u -> do url <- fmap rqURI getRequest
+                                    if u `T.isPrefixOf` (decodeUtf8 url)
+                                      then return (elementChildren node)
+                                      else return []
+
 siteSplices :: Site ->  Splices (Splice AppHandler)
 siteSplices site = do "rebind" ## rebindSplice
                       "authlink" ## authLinkSplice
@@ -377,6 +394,9 @@ siteSplices site = do "rebind" ## rebindSplice
                       "headers" ## headersSplice site
                       "blob" ## blobSplice site
                       "set-blob" ## setBlobSplice site
+                      "is-url" ## isUrlSplice
+                      "prefix-url" ## prefixUrlSplice
+                      bindStrictTag ## bindStrictImpl
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do

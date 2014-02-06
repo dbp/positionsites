@@ -54,6 +54,7 @@ siteApiHandler site user =
         ,("/delete/:id/data/:field", apiIdFieldItem site (apiDeleteDataField user))
         ,("/set/:id/data/:field/existing", apiIdFieldItem site (apiSetDataFieldExisting user))
         ,("/set/:id/data/:field/new", apiIdFieldItem site (apiSetDataFieldNew user))
+        ,("/list/:id/:field/swap/:idxa/:idxb", apiList site (apiListSwap user))
         ,("/list/:id/:field/add/data/existing", apiList site (apiListAddDataExisting user))
         ,("/list/:id/:field/add/data/new", apiList site (apiListAddDataNew user))
         ,("/list/:id/:field/set/:index/data/existing",
@@ -227,6 +228,19 @@ apiListDeleteItem user _site _item_id field idx item _dat _spec = authcheck user
     modifyResponse (setResponseCode 201)
     return ())
   where removeAt n lst = take n lst ++ drop (n + 1) lst
+
+apiListSwap :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
+apiListSwap user _site _item_id field item _dat spec = authcheck user item $ do
+ idxa <- getParam "idxa"
+ idxb <- getParam "idxb"
+ case (,) <$> (breadSafe =<< idxa) <*> (breadSafe =<< idxb) of
+   Nothing -> pass
+   Just (ia, ib) -> do
+     let flds = itemFields item
+     updateItem $ item { itemFields = insert field
+                         (modifyListFieldElems (flds ! field) (swapList ia ib)) flds}
+     modifyResponse (setResponseCode 201)
+     return ()
 
 apiDeleteDataField :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
 apiDeleteDataField user site item_id field item _dat spec' = authcheck user item $

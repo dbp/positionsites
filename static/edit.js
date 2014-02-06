@@ -36,12 +36,6 @@ $(function () {
 
     var refresh_option = $(this).attr("data-refresh") || "none";
 
-    $.ajax(target, {
-        success: load_box
-      });
-
-    return false;
-
     function load_box(resp, status, xhr) {
       div.html(resp);
       div.find("form").attr("action", target).ajaxForm({
@@ -53,7 +47,6 @@ $(function () {
     }
 
     function handle_response(resp, status, xhr) {
-      console.log(xhr.status);
       if (xhr.status === 201) {
         close.click();
         refresh(refresh_option);
@@ -61,6 +54,28 @@ $(function () {
         load_box(resp, status, xhr);
       }
     }
+
+    $.ajax(target, {
+        success: load_box
+      });
+
+    return false;
+
+  });
+
+  $(document).on("click", "a[data-action=1]", function () {
+    var target = $(this).attr("href");
+    var refresh_option = $(this).attr("data-refresh") || "none";
+
+    function handle_response(resp, status, xhr) {
+      refresh(refresh_option);
+    }
+
+    $.ajax(target, {
+        success: handle_response
+      });
+
+    return false;
 
   });
 
