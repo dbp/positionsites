@@ -324,7 +324,8 @@ apiSetImageField :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec
 apiSetImageField user site item_id field item _dat spec' = authcheck user item $
   case spec' of
     ImageFieldSpec -> do
-      r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize (2^24) defaultUploadPolicy}) "image-form" imageForm
+      r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
+                                              , partPolicy = const $ allowWithMaximumSize tenmegs}) "image-form" imageForm
       case r of
         (v, Nothing) -> renderWithSplices "api/data/image" (digestiveSplices v)
         (_, Just path) -> do
@@ -354,6 +355,7 @@ apiSetImageField user site item_id field item _dat spec' = authcheck user item $
                                         then Just loadPngFile
                                         else Nothing
         getExtension = T.pack . reverse . (takeWhile (/= '.')) . reverse
+        tenmegs = 10 * 1024 * 1024
 
 makeSizes :: GD.Image -> Image -> Int -> Int ->  Text -> [(Int, (Int, Int))] -> AppHandler ()
 makeSizes _    _   _    _    _    []                    = return ()

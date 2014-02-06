@@ -8,6 +8,9 @@ import Data.ByteString (ByteString)
 import Snap.Snaplet
 import Snap.Core
 import Snap.Util.FileServe (serveDirectory)
+import Web.Analyze.Client (wrap)
+import Data.Configurator (require)
+import Network.HTTP.Conduit (Manager)
 
 import Application
 import Handler.Auth
@@ -16,21 +19,24 @@ import Handler.Index
 
 import State.Site
 
-routes :: [(ByteString, AppHandler ())]
-routes = [("/static", serveDirectory "static")
-         ,("", domainHandler)]
+routes :: Manager -> [(ByteString, AppHandler ())]
+routes man = [("/static", serveDirectory "static")
+             ,("", domainHandler man)]
 
-domainHandler :: AppHandler ()
-domainHandler = do
+domainHandler :: Manager -> AppHandler ()
+domainHandler man = do
   name <- fmap rqServerName getRequest
   case name of
-   "hosting" -> route managementRoutes
-   "positionsites.com" -> route managementRoutes
+   "hosting" -> manRoute
+   "positionsites.com" -> manRoute
    _ -> do
      msite <- getSiteByName (decodeUtf8 name)
      case msite of
       Nothing -> pass
-      Just site -> siteHandler site
+      Just site -> siteHandler man site
+  where manRoute = do conf <- getSnapletUserConfig
+                      tok <- liftIO $ require conf "analyze-token"
+                      wrap renderError man tok (route managementRoutes)
 
 managementRoutes :: [(ByteString, AppHandler ())]
 managementRoutes = [("/login", loginHandler)

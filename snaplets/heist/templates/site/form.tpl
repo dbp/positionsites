@@ -26,6 +26,16 @@
         </dfIfChildErrors>
 
         <tr>
+          <td><dfLabel ref="token">Analyze Token</dfLabel></td>
+          <td><dfInputText ref="token" size="20" /></td>
+        </tr>
+        <dfIfChildErrors ref="token">
+          <tr>
+            <td></td><td><dfErrorList ref="token" /></td>
+          </tr>
+        </dfIfChildErrors>
+
+        <tr>
           <td class="name"><dfLabel ref="base">Template</dfLabel></td>
           <td class="textarea"><dfInputTextArea ref="base" rows="40" id="base-textarea" /></td>
         </tr>

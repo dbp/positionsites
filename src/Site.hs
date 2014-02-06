@@ -19,6 +19,7 @@ import           Snap.Snaplet.Session.Backends.CookieSession
 import qualified Text.XmlHtml as X
 import           Heist
 import           Heist.Interpreted
+import           Network.HTTP.Conduit (Manager, newManager, closeManager, conduitManagerSettings)
 
 import           Application
 import           Routes (routes)
@@ -30,7 +31,7 @@ serverSplices = "server-port" ## serverPortSplice
 serverPortSplice :: Splice AppHandler
 serverPortSplice = do
   port <- lift (fmap rqServerPort getRequest)
-  return (if (port == 80 || port == 0)
+  return (if port == 80 || port == 0
              then []
              else [X.TextNode (T.append ":" $ tshow port)])
 
@@ -47,6 +48,8 @@ app = makeSnaplet "app" "An data-driven CMS." Nothing $ do
           (Just 3600)
     d <- nestSnaplet "db" db pgsInit
     a <- nestSnaplet "auth" auth $ initPostgresAuth sess d
-    addRoutes routes
+    man <- liftIO (newManager conduitManagerSettings)
+    onUnload (closeManager man)
+    addRoutes (routes man)
     addAuthSplices h auth
     return $ App h s a d

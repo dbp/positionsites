@@ -31,6 +31,9 @@ import qualified Data.ByteString as B
 import Text.Digestive
 import Text.Digestive.Snap hiding (method)
 import Text.Digestive.Heist
+import Heist.Splices.BindStrict
+import Web.Analyze.Client
+import Network.HTTP.Conduit (Manager)
 
 import Application
 import State.Site
@@ -52,23 +55,27 @@ import Handler.API
 import Handler.Auth
 
 sitePath :: Site -> ByteString
-sitePath (Site id' _ _) = B.append "/site/" (B8.pack (show id'))
+sitePath (Site id' _ _ _) = B.append "/site/" (B8.pack (show id'))
 
 
-siteForm :: Maybe Site -> Form Text AppHandler (Text, Text)
-siteForm old = (,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old)))
-                   <*> "domain" .: nonEmpty (text (fmap siteUrl old))
+siteForm :: Maybe Site -> Form Text AppHandler (Text, Text, Text)
+siteForm old = (,,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old)))
+                    <*> "domain" .: nonEmpty (text (fmap siteUrl old))
+                    <*> "token" .: text (siteAnalyzeToken =<< old)
+
+renderError :: AppHandler ()
+renderError = render "error"
 
 newSiteHandler :: AppHandler ()
 newSiteHandler = do
-  r <- runForm "new-site" (siteForm (Just (Site (-1) "" "<authlink/>\n\n<apply-content/>")))
+  r <- runForm "new-site" (siteForm (Just (Site (-1) "" "<authlink/>\n\n<apply-content/>" Nothing)))
   case r of
     (v, Nothing) -> renderWithSplices "site/new" (digestiveSplices v)
-    (_, Just (base, url)) -> do
-      mid <- newSite (Site (-1) url base)
+    (_, Just (base, url, token)) -> do
+      mid <- newSite (Site (-1) url base (if token == "" then Nothing else Just token))
       case mid of
         Nothing -> error "Site could not be created"
-        Just site_id -> redirect (sitePath (Site site_id "" ""))
+        Just site_id -> redirect (sitePath (Site site_id "" "" Nothing))
 
 manageSiteHandler :: AppHandler ()
 manageSiteHandler = do
@@ -110,8 +117,9 @@ editSiteHandler site = do
   r <- runForm "edit-base" (siteForm (Just site))
   case r of
     (v, Nothing) -> renderWithSplices "site/edit" (digestiveSplices v)
-    (_, Just (base, domain)) -> do
-      updateSite (site { siteBase = base, siteUrl = domain })
+    (_, Just (base, domain, token)) -> do
+      updateSite (site { siteBase = base, siteUrl = domain
+                       , siteAnalyzeToken = if token == "" then Nothing else Just token })
       redirect (sitePath site)
 
 newGenHandler :: Site
@@ -233,16 +241,19 @@ loginGuard' hndlr = do
         Just siteuser ->
           hndlr siteuser
 
-siteHandler :: Site -> AppHandler ()
-siteHandler site =
-  route [("/api", loginGuard' $ siteApiHandler site)
-        ,("/login", loginHandler)
-        ,("/logout", logoutHandler)
-        ,("/signup", signupHandler)
-        ,("/images/:name", imagesHandler site)
-        ,("/header/:id", headerHandler site)
-        ,("", do pages <- getSitePages site
-                 routePages site pages)]
+siteHandler :: Manager -> Site -> AppHandler ()
+siteHandler man site =
+  siteWrap $ route [("/api", loginGuard' $ siteApiHandler site)
+                   ,("/login", loginHandler)
+                   ,("/logout", logoutHandler)
+                   ,("/signup", signupHandler)
+                   ,("/images/:name", imagesHandler site)
+                   ,("/header/:id", headerHandler site)
+                   ,("", do pages <- getSitePages site
+                            routePages site pages)]
+  where siteWrap = case siteAnalyzeToken site of
+                     Nothing -> id
+                     Just token -> wrap renderError man (encodeUtf8 token)
 
 
 imagesHandler :: Site -> AppHandler ()

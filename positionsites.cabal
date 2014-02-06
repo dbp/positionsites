@@ -45,7 +45,13 @@ Executable positionsites
     digestive-functors-snap,
     digestive-functors-heist,
     configurator,
-    gd
+    gd,
+    -- the next three are because the current combination on hackage is broken
+    http-client == 0.2.0.3,
+    http-client-tls == 0.2.0.2,
+    connection < 0.2,
+    analyze-client,
+    http-conduit
 
   if flag(old-base)
     build-depends:

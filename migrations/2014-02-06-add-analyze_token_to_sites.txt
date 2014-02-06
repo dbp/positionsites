@@ -1,0 +1,8 @@
+Description: (Description here.)
+Created: 2014-02-06 15:51:14.508466 UTC
+Depends: 2014-01-21-add_site_base 2014-01-13-base_schema
+Apply:
+  ALTER TABLE sites ADD COLUMN analyze_token text;
+
+Revert:
+  ALTER TABLE sites DROP COLUMN analyze_token;
