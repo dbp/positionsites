@@ -1,10 +1,16 @@
 <apply template="api_base">
 
+  <script>
+    $(function () {
+      $(".fields textarea").autosize();
+    });
+  </script>
+
 <dfForm method="post">
-  <table>
+  <table class="ps-fields">
     <fields>
       <tr>
-        <td><dfLabel ref="${field-ref}"><field-ref/></dfLabel></td>
+        <td class="ps-label"><dfLabel ref="${field-ref}"><field-ref/></dfLabel></td>
         <td><psInput type="${field-type}" ref="${field-ref}"/></td>
       </tr>
       <dfIfChildErrors ref="${field-ref}">
