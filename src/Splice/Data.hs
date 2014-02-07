@@ -145,7 +145,7 @@ fieldsSplices s d i fields = (do "id" ## textSplice (tshow (itemId i))
 
 fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Splice AppHandler
 fldSplice _ _ _ _ _ Nothing = textSplice ""
-fldSplice _ _ _ _ _ (Just (StringFieldData s)) = textSplice s
+fldSplice _ _ _ _ _ (Just (StringFieldData s)) = return (newlineReplace s)
 fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
 fldSplice _ _ _ _ _ (Just (ImageFieldData id')) = imageSplice id'
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =

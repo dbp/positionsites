@@ -2,7 +2,7 @@
 
   <script>
     $(function () {
-      $(".fields textarea").autosize();
+      $(".ps-fields textarea").autosize();
     });
   </script>
 

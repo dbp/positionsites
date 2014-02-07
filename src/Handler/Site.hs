@@ -349,7 +349,6 @@ blobSplice site = do
                                        Left err -> []
                                        Right html -> docContent html
                          BlobMarkdown -> error "Don't support markdown yet."
-        newlineReplace t = intersperse (Element "br" [] []) (map TextNode $ T.splitOn "\n" t)
 
 setBlobSplice :: Site -> Splice AppHandler
 setBlobSplice site = do
