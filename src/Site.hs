@@ -49,6 +49,10 @@ psInputSplice = do n <- getParamNode
                                                   ,X.Element "dfInputHidden"
                                                                    [("ref", ref)]
                                                                    []]
+                     Just ("data", ref) -> return [X.TextNode "Set this later."
+                                                 ,X.Element "dfInputHidden"
+                                                                  [("ref", ref)]
+                                                                  []]
                      Just ("hidden", ref) -> return [X.Element "dfInputHidden"
                                                                [("ref", ref)]
                                                                []]
