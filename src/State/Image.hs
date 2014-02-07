@@ -14,8 +14,11 @@ import qualified Data.Text as T
 import qualified Data.Configurator as C
 import Data.List (sortBy)
 import Data.Ord (comparing)
+import Graphics.GD hiding (newImage, Image)
+import qualified Graphics.GD as GD
 
 import Application
+import State.Site
 import Helpers.State
 import Helpers.Misc
 import Helpers.Text
@@ -90,3 +93,39 @@ getImageRepository = do
   case dir of
     Nothing -> error "Could not get imageRepo from config."
     Just path -> return path
+
+
+storeImage :: Site -> Text -> AppHandler Image
+storeImage site path = do
+  im <- newImage (siteId site)
+  case im of
+     Nothing -> error "Could not create image."
+     Just image -> do
+       repo <- getImageRepository
+       let lf = loadFileSmart path
+       case lf of
+         Nothing -> error "Cannot support non-jpg or png"
+         Just loadFile -> do
+           file <- liftIO (loadFile $ T.unpack path)
+           (width, height) <- liftIO (imageSize file)
+           makeSizes file image width height repo standardSizes
+           updateImage image { imageFormats = standardSizes
+                             , imageExtension = "png"
+                             , imageOrigWidth = width
+                             , imageOrigHeight = height }
+           return image
+  where loadFileSmart path = if T.isSuffixOf ".jpg" path
+                                then Just loadJpegFile
+                                else if T.isSuffixOf ".png" path
+                                        then Just loadPngFile
+                                        else Nothing
+        getExtension = T.pack . reverse . (takeWhile (/= '.')) . reverse
+
+makeSizes :: GD.Image -> Image -> Int -> Int ->  Text -> [(Int, (Int, Int))] -> AppHandler ()
+makeSizes _    _   _    _    _    []                    = return ()
+makeSizes file img maxw maxh repo ((i, (wid, heig)):xs) = do
+ if maxw > wid && maxh > heig
+    then let (neww, newh) = fixSizes maxw maxh wid heig
+         in liftIO $ resizeImage neww newh file >>= savePngFile (buildImagePath img repo i)
+    else liftIO $ savePngFile (buildImagePath img repo i) file
+ makeSizes file img maxw maxh repo xs

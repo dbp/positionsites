@@ -26,7 +26,8 @@ import           Routes (routes)
 import           Helpers.Text
 
 serverSplices :: Splices (Splice AppHandler)
-serverSplices = "server-port" ## serverPortSplice
+serverSplices = do "server-port" ## serverPortSplice
+                   "psInput" ## psInputSplice
 
 serverPortSplice :: Splice AppHandler
 serverPortSplice = do
@@ -34,6 +35,26 @@ serverPortSplice = do
   return (if port == 80 || port == 0
              then []
              else [X.TextNode (T.append ":" $ tshow port)])
+
+psInputSplice :: Splice AppHandler
+psInputSplice = do n <- getParamNode
+                   let t = X.getAttribute "type" n
+                   let r = X.getAttribute "ref" n
+                   case (,) <$> t <*> r of
+                     Nothing -> error "psInput: need 'type' attribute"
+                     Just ("text", ref) ->  return [X.Element "dfInputTextArea"
+                                                              [("ref", ref)]
+                                                              []]
+                     Just ("list", ref) -> return [X.TextNode "Add elements later."
+                                                  ,X.Element "dfInputHidden"
+                                                                   [("ref", ref)]
+                                                                   []]
+                     Just ("hidden", ref) -> return [X.Element "dfInputHidden"
+                                                               [("ref", ref)]
+                                                               []]
+                     Just ("file", ref) -> return [X.Element "dfInputFile"
+                                                             [("ref", ref)]
+                                                             []]
 
 app :: SnapletInit App App
 app = makeSnaplet "app" "An data-driven CMS." Nothing $ do

@@ -2,6 +2,7 @@
 
 module Helpers.Forms where
 
+import Control.Monad.Trans (liftIO)
 import Data.Traversable (sequenceA)
 import Data.Map (Map)
 import Data.Aeson hiding (Error, Success, (.:))
@@ -15,7 +16,8 @@ import Text.XmlHtml
 
 import Application
 import Helpers.Text
-import State.Data (Item(..), FieldSpec, FieldData, parseSpec, renderFieldData, shortName)
+import State.Site (Site)
+import State.Data (Item(..), FieldSpec(..), FieldData, parseSpec, renderFieldData, shortName)
 
 emailForm :: Maybe Text -> Form Text AppHandler Text
 emailForm email = check "Not a valid email address." (\e -> T.isInfixOf "@" e) $
@@ -36,14 +38,22 @@ jsonMapForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict e) of
                                 Just m -> Success m)
               nonEmptyTextForm
 
-fieldsForm :: [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
-fieldsForm = sequenceA . map (($ Nothing) . uncurry fieldForm)
+fieldsForm :: Site -> [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
+fieldsForm site = sequenceA . map (($ Nothing) . uncurry (fieldForm site))
 
-fieldForm :: Text -> FieldSpec -> Maybe FieldData -> Form Text AppHandler (Text, FieldData)
-fieldForm n spec d = n .: validate (fmap (n,) .
-                                    (maybe (Error $ T.concat ["Not a valid ", n, "."]) Success) .
-                                    (parseSpec spec))
-                                   (text (fmap renderFieldData d))
+fieldForm :: Site -> Text -> FieldSpec -> Maybe FieldData -> Form Text AppHandler (Text, FieldData)
+fieldForm site n spec d = n .: validateM (\f -> do r <- parseSpec site spec f
+                                                   liftIO $ print ("Got result ", r)
+                                                   case r of
+                                                     Nothing ->
+                                                       return (Error (T.concat ["Not a valid "
+                                                                               , n
+                                                                               , "."]))
+                                                     Just f -> return (Success (n, f)))
+                                          (case spec of
+                                             ImageFieldSpec -> imageForm
+                                             _ -> text (fmap renderFieldData d))
+
 
 
 fieldDataExistingForm :: [Item] -> Form Text AppHandler Int
@@ -55,7 +65,7 @@ validateHtml = validate (\x -> case parseHTML "" (T.encodeUtf8 x) of
                                  Right _ -> Success x)
 
 
-imageForm :: Form Text AppHandler FilePath
-imageForm = "file" .: validate required file
+imageForm :: Form Text AppHandler Text
+imageForm = validate required file
   where required Nothing = Error "File is required."
-        required (Just p) = Success p
+        required (Just p) = Success (T.pack p)

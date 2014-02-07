@@ -5,7 +5,7 @@
     <fields>
       <tr>
         <td><dfLabel ref="${field-ref}"><field-ref/></dfLabel></td>
-        <td><dfInput type="${field-type}" ref="${field-ref}"/></td>
+        <td><psInput type="${field-type}" ref="${field-ref}"/></td>
       </tr>
       <dfIfChildErrors ref="${field-ref}">
       <tr>

@@ -73,10 +73,10 @@ fieldsSplice (n, NumberFieldSpec) = do
   "field-type" ## textSplice "text"
 fieldsSplice (n, ImageFieldSpec) = do
   "field-ref" ## textSplice n
-  "field-type" ## textSplice "hidden"
+  "field-type" ## textSplice "file"
 fieldsSplice (n, ListFieldSpec et) = do
   "field-ref" ## textSplice n
-  "field-type" ## textSplice "hidden"
+  "field-type" ## textSplice "list"
 fieldsSplice (n, DataFieldSpec name) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "hidden"

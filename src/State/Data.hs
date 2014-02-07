@@ -30,6 +30,7 @@ import qualified Data.Vector as V
 import Application
 import State.Site
 import State.User
+import State.Image
 import Helpers.State
 import Helpers.Misc
 import Helpers.Text
@@ -85,12 +86,15 @@ instance ToField [FieldSpec] where
   toField flds = Plain (fromByteString $ B8.intercalate "," $ map fieldToBs flds)
 
 
-parseSpec :: FieldSpec -> Text -> Maybe FieldData
-parseSpec StringFieldSpec s = Just $ StringFieldData s
-parseSpec ImageFieldSpec i = Just $ ImageFieldData (-1)
-parseSpec NumberFieldSpec s = fmap NumberFieldData (readSafe (unpack s))
-parseSpec (ListFieldSpec _) s = Just $ ListFieldData []
-parseSpec (DataFieldSpec _) s = Just $ DataFieldData Nothing
+parseSpec :: Site -> FieldSpec -> Text -> AppHandler (Maybe FieldData)
+parseSpec _ StringFieldSpec s = return $ Just $ StringFieldData s
+parseSpec _ NumberFieldSpec s = return $ fmap NumberFieldData (readSafe (unpack s))
+parseSpec site ImageFieldSpec i = do
+  liftIO $ print ("processing image ", i)
+  im <- storeImage site i
+  return $ Just $ ImageFieldData (imageId im)
+parseSpec _ (ListFieldSpec _) s = return $ Just $ ListFieldData []
+parseSpec _ (DataFieldSpec _) s = return $ Just $ DataFieldData Nothing
 
 data FieldData = StringFieldData Text
                | NumberFieldData Int

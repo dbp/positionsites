@@ -22,9 +22,6 @@ import qualified Data.ByteString as B
 import Text.Digestive
 import Text.Digestive.Snap hiding (method)
 import Text.Digestive.Heist
-import Graphics.GD hiding (newImage, Image)
-import qualified Graphics.GD as GD
-import Data.List (isSuffixOf)
 
 import Application
 import State.Site
@@ -169,7 +166,7 @@ apiNewItem site user data_id = do
   case d of
     Nothing -> passLog ["Data id not valid."]
     Just dat -> do
-      r <- runForm "new-item" (fieldsForm (kvs (dataFields dat)))
+      r <- runForm "new-item" (fieldsForm site (kvs (dataFields dat)))
       case r of
         (v, Nothing) ->
           renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
@@ -195,7 +192,7 @@ apiDeleteItem site user item_id = do
 apiSetFieldItem :: Site -> SiteUser -> Int -> Text -> AppHandler ()
 apiSetFieldItem site user item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->
   authcheck user item $ do
-    r <- runForm "set-field" (fieldForm field spec (Just (itemFields item ! field)))
+    r <- runForm "set-field" (fieldForm site field spec (Just (itemFields item ! field)))
     case r of
       (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
                                                   <> fieldsSplice (field, spec))
@@ -205,8 +202,8 @@ apiSetFieldItem site user item_id field = itemDataFieldSpecLookup site item_id f
           return ()
 
 apiListAddItem :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListAddItem user _site _item_id field item _dat spec = authcheck user item $ do
-  r <- runForm "list-add" (fieldForm field spec Nothing)
+apiListAddItem user site _item_id field item _dat spec = authcheck user item $ do
+  r <- runForm "list-add" (fieldForm site field spec Nothing)
   case r of
     (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
                                               <> fieldsSplice (field, spec))
@@ -256,7 +253,7 @@ apiDeleteDataField user site item_id field item _dat spec' = authcheck user item
 apiListSetItem :: SiteUser -> Site -> Int -> Text -> Int -> Item -> Data -> FieldSpec ->  AppHandler ()
 apiListSetItem user site item_id field idx item _dat spec = authcheck user item $ do
   let flds = itemFields item
-  r <- runForm "list-set" (fieldForm field spec
+  r <- runForm "list-set" (fieldForm site field spec
                            (Just ((getListFieldElems $ flds ! field) !! idx)))
   case r of
     (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
@@ -307,7 +304,7 @@ apiNewDataHandler user site field item spec' field_update = authcheck user item 
       case mdat of
         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
         Just dat -> do
-         r <- runForm "field-data-new" (fieldsForm (kvs (dataFields dat)))
+         r <- runForm "field-data-new" (fieldsForm site (kvs (dataFields dat)))
          case r of
            (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
            (_, Just flds) -> do
@@ -339,43 +336,13 @@ apiSetImageField user site item_id field item _dat spec' = authcheck user item $
   case spec' of
     ImageFieldSpec -> do
       r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
-                                              , partPolicy = const $ allowWithMaximumSize tenmegs}) "image-form" imageForm
+                                              , partPolicy = const $ allowWithMaximumSize tenmegs}) "image-form" ("file" .: imageForm)
       case r of
         (v, Nothing) -> renderWithSplices "api/data/image" (digestiveSplices v)
         (_, Just path) -> do
-          im <- newImage (siteId site)
-          case im of
-            Nothing -> error "Could not create image."
-            Just image -> do
-              repo <- getImageRepository
-              let lf = loadFileSmart path
-              case lf of
-                Nothing -> error "Cannot support non-jpg or png"
-                Just loadFile -> do
-                  file <- liftIO (loadFile path)
-                  (width, height) <- liftIO (imageSize file)
-                  makeSizes file image width height repo standardSizes
-                  updateImage image { imageFormats = standardSizes
-                                    , imageExtension = "png"
-                                    , imageOrigWidth = width
-                                    , imageOrigHeight = height }
-                  let flds = itemFields item
-                  updateItem $ item { itemFields = insert field (ImageFieldData (imageId image)) flds}
-                  modifyResponse (setResponseCode 201)
-                  return ()
-  where loadFileSmart path = if isSuffixOf ".jpg" path
-                                then Just loadJpegFile
-                                else if isSuffixOf ".png" path
-                                        then Just loadPngFile
-                                        else Nothing
-        getExtension = T.pack . reverse . (takeWhile (/= '.')) . reverse
-        tenmegs = 10 * 1024 * 1024
-
-makeSizes :: GD.Image -> Image -> Int -> Int ->  Text -> [(Int, (Int, Int))] -> AppHandler ()
-makeSizes _    _   _    _    _    []                    = return ()
-makeSizes file img maxw maxh repo ((i, (wid, heig)):xs) = do
-  if maxw > wid && maxh > heig
-     then let (neww, newh) = fixSizes maxw maxh wid heig
-          in liftIO $ resizeImage neww newh file >>= savePngFile (buildImagePath img repo i)
-     else liftIO $ savePngFile (buildImagePath img repo i) file
-  makeSizes file img maxw maxh repo xs
+          image <- storeImage site path
+          let flds = itemFields item
+          updateItem $ item { itemFields = insert field (ImageFieldData (imageId image)) flds}
+          modifyResponse (setResponseCode 201)
+          return ()
+  where tenmegs = 10 * 1024 * 1024
