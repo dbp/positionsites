@@ -16,6 +16,7 @@ import Text.XmlHtml
 
 import Application
 import Helpers.Text
+import State.User (SiteUser)
 import State.Site (Site)
 import State.Data (Item(..), FieldSpec(..), FieldData, parseSpec, renderFieldData, shortName)
 
@@ -69,3 +70,7 @@ imageForm :: Form Text AppHandler Text
 imageForm = validate required file
   where required Nothing = Error "File is required."
         required (Just p) = Success (T.pack p)
+
+
+ownershipForm :: [(SiteUser, Text)] -> Formlet Text AppHandler SiteUser
+ownershipForm users cur = "owner" .: choice users cur

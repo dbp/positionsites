@@ -43,6 +43,7 @@ siteApiHandler site user =
   route [("/blob/set/:id", apiId $ apiBlobSet site user)
         ,("/new/:id", apiId $ apiNewItem site user)
         ,("/delete/:id", apiId $ apiDeleteItem site user)
+        ,("/ownership/:id", apiId $ apiOwnership site user)
         ,("/set/:id/image/:field", apiIdFieldItem site (apiSetImageField user))
         ,("/set/:id/:field", apiIdField $ apiSetFieldItem site user)
         ,("/list/:id/:field/add", apiList site (apiListAddItem user))
@@ -136,6 +137,12 @@ authcheck user item hndlr =
      then hndlr
      else forbidden
 
+admincheck :: SiteUser -> AppHandler () -> AppHandler ()
+admincheck user hndlr =
+  if siteUserAdmin user
+    then hndlr
+    else forbidden
+
 -- | All API Handlers
 
 setBlobForm :: Blob -> Form Text AppHandler Blob
@@ -188,6 +195,21 @@ apiDeleteItem site user item_id = do
           deleteItem item
           modifyResponse (setResponseCode 201)
           return ())
+
+apiOwnership :: Site -> SiteUser -> Int -> AppHandler ()
+apiOwnership site user item_id = admincheck user $ do
+  mit <- getItemById site item_id
+  case mit of
+    Nothing -> passLog ["Item id not valid"]
+    Just item -> do
+      users <- getSiteUsers site
+      r <- runForm "ownership" (ownershipForm users (Just (SiteUser (itemOwnerId item) False)))
+      case r of
+        (v, Nothing) -> renderWithSplices "api/ownership" (digestiveSplices v)
+        (_, Just su) -> do
+           updateItem $ item { itemOwnerId = siteUserId su}
+           modifyResponse (setResponseCode 201)
+           return ()
 
 apiSetFieldItem :: Site -> SiteUser -> Int -> Text -> AppHandler ()
 apiSetFieldItem site user item_id field = itemDataFieldSpecLookup site item_id field $ \item dat spec ->

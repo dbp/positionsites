@@ -46,6 +46,22 @@ loginGuardSplice' item s = do
          if siteUserAdmin u || siteUserId u == itemOwnerId item
                    then s
                    else return []
+
+loginAdminGuardSplice :: Splice AppHandler -> Splice AppHandler
+loginAdminGuardSplice s = do
+ mau <- lift $ with auth currentUser
+ case mau >>= userId >>= (readSafe . T.unpack . unUid) of
+   Nothing -> return []
+   Just id' -> do
+     mu <- lift $ getUser id'
+     case mu of
+       Nothing -> return []
+       Just u ->
+         if siteUserAdmin u
+                   then s
+                   else return []
+
+
 manageDataSplice :: [Data] -> Splice AppHandler
 manageDataSplice = mapSplices (runChildrenWith . manageDatumSplices)
 
@@ -112,7 +128,8 @@ itemSplices s d i = ("delete" ## loginGuardSplice' i $ deleteSplice d i)
                     <> fieldsSplices s d i (M.assocs $ dataFields d)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
-fieldsSplices s d i fields = (T.concat ["id"] ## textSplice (tshow (itemId i))) <>
+fieldsSplices s d i fields = (do "id" ## textSplice (tshow (itemId i))
+                                 "ownership" ## loginAdminGuardSplice (ownershipSplice i)) <>
  (mconcat $ map (\(name, spec) -> do
               name ## fldSplice spec s d i name (M.lookup name (itemFields i))
               case spec of
@@ -288,3 +305,8 @@ swapListItemSplice i nm idxa idxb =
                 , "/"
                 , tshow idxb
                 ])
+
+ownershipSplice :: Item -> Splice AppHandler
+ownershipSplice i = do
+  n <- getParamNode
+  linkSplice' (X.elementChildren n) (T.concat ["/api/ownership/", tshow (itemId i)])
