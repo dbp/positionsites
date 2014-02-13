@@ -44,7 +44,6 @@ fieldsForm site = sequenceA . map (($ Nothing) . uncurry (fieldForm site))
 
 fieldForm :: Site -> Text -> FieldSpec -> Maybe FieldData -> Form Text AppHandler (Text, FieldData)
 fieldForm site n spec d = n .: validateM (\f -> do r <- parseSpec site spec f
-                                                   liftIO $ print ("Got result ", r)
                                                    case r of
                                                      Nothing ->
                                                        return (Error (T.concat ["Not a valid "

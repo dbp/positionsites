@@ -77,8 +77,8 @@ itemCountSplice d = do
   count <- lift (itemCount d)
   textSplice (tshow count)
 
-apiFieldsSplice :: Data -> Splices (Splice AppHandler)
-apiFieldsSplice d = "fields" ## mapSplices (runChildrenWith . fieldsSplice) (kvs $ dataFields d)
+apiFieldsSplice :: Data -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
+apiFieldsSplice d vs = "fields" ## mapSplices (runChildrenWith . fieldsSplice) vs
 
 fieldsSplice :: (Text, FieldSpec) -> Splices (Splice AppHandler)
 fieldsSplice (n, StringFieldSpec) = do
@@ -250,8 +250,17 @@ addPoint = "+"
 deletePoint :: Text
 deletePoint = "\215"
 
+getOrderedParam :: HeistT n AppHandler Text
+getOrderedParam = do n <- getParamNode
+                     let mo = lookup "order" (X.elementAttrs n)
+                     return $ case mo of
+                               Nothing -> ""
+                               Just o' -> T.append "?order=" o'
+
 newItemSplice :: Data -> Splice AppHandler
-newItemSplice d = linkSplice addPoint (T.concat ["/api/new/", tshow (dataId d)])
+newItemSplice d = do
+   o <- getOrderedParam
+   linkSplice addPoint (T.concat ["/api/new/", tshow (dataId d), o])
 
 deleteSplice :: Data -> Item -> Splice AppHandler
 deleteSplice d i = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i)])
@@ -266,7 +275,9 @@ addListFieldDataExistingSplice :: Item -> Text -> Splice AppHandler
 addListFieldDataExistingSplice i nm = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/existing"])
 
 addListFieldDataNewSplice :: Item -> Text -> Splice AppHandler
-addListFieldDataNewSplice i nm = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/new"])
+addListFieldDataNewSplice i nm = do
+  o <- getOrderedParam
+  linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/add/data/new", o])
 
 deleteListFieldSplice :: Item -> Text -> Int -> Splice AppHandler
 deleteListFieldSplice i nm idx = linkSplice deletePoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/delete/", tshow idx])
@@ -278,7 +289,9 @@ setListFieldDataExistingSplice :: Item -> Text -> Int -> Splice AppHandler
 setListFieldDataExistingSplice i nm idx = linkSplice editPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/existing"])
 
 setListFieldDataNewSplice :: Item -> Text -> Int -> Splice AppHandler
-setListFieldDataNewSplice i nm idx = linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new"])
+setListFieldDataNewSplice i nm idx = do
+  o <- getOrderedParam
+  linkSplice addPoint (T.concat ["/api/list/", tshow (itemId i), "/", nm, "/set/", tshow idx, "/data/new", o])
 
 deleteDataFieldSplice :: Item -> Text -> Splice AppHandler
 deleteDataFieldSplice i nm = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
@@ -287,7 +300,9 @@ setDataFieldExistingSplice :: Item -> Text -> Splice AppHandler
 setDataFieldExistingSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing"])
 
 setDataFieldNewSplice :: Item -> Text -> Splice AppHandler
-setDataFieldNewSplice i nm = linkSplice addPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new"])
+setDataFieldNewSplice i nm = do
+  o <- getOrderedParam
+  linkSplice addPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/new", o])
 
 imageSetFieldSplice :: Item -> Text -> Splice AppHandler
 imageSetFieldSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/image/", nm])

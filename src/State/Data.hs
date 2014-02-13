@@ -90,7 +90,6 @@ parseSpec :: Site -> FieldSpec -> Text -> AppHandler (Maybe FieldData)
 parseSpec _ StringFieldSpec s = return $ Just $ StringFieldData s
 parseSpec _ NumberFieldSpec s = return $ fmap NumberFieldData (readSafe (unpack s))
 parseSpec site ImageFieldSpec i = do
-  liftIO $ print ("processing image ", i)
   im <- storeImage site i
   return $ Just $ ImageFieldData (imageId im)
 parseSpec _ (ListFieldSpec _) s = return $ Just $ ListFieldData []

@@ -6,6 +6,7 @@ import Prelude hiding (lookup)
 import Control.Applicative
 import Data.Map (fromList, lookup, insert, (!))
 import Data.Monoid
+import Data.Maybe
 import Snap.Core
 import Snap.Snaplet.Heist
 import Snap.Snaplet.Auth
@@ -61,6 +62,15 @@ siteApiHandler site user =
         ]
 
 -- | Helpers for looking up common parameters and loading data
+orderedFields :: Data -> AppHandler [(Text, FieldSpec)]
+orderedFields dat = do
+  mo <- fmap (>>= urlDecode) $ getParam "order"
+  return $
+   case mo of
+     Nothing -> kvs (dataFields dat)
+     Just o ->
+       let flds = T.splitOn "," $ decodeUtf8 o in
+       mapMaybe (\f -> (f,) <$> lookup f (dataFields dat)) flds
 
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
 apiId hndlr = do
@@ -173,10 +183,13 @@ apiNewItem site user data_id = do
   case d of
     Nothing -> passLog ["Data id not valid."]
     Just dat -> do
-      r <- runForm "new-item" (fieldsForm site (kvs (dataFields dat)))
+      fldsOrdered <- orderedFields dat
+      -- NOTE(dbp 2014-02-13): We actually don't need it for the form, but rather
+      -- for the apiFieldsSplice call lower down - that is what actually fixes the order.
+      r <- runForm "new-item" (fieldsForm site fldsOrdered)
       case r of
         (v, Nothing) ->
-          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered)
         (_, Just flds) -> do
           newItem (Item (-1) (dataId dat) (dataSiteId dat) (siteUserId user) (fromList flds))
           modifyResponse (setResponseCode 201)
@@ -326,9 +339,10 @@ apiNewDataHandler user site field item spec' field_update = authcheck user item 
       case mdat of
         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
         Just dat -> do
-         r <- runForm "field-data-new" (fieldsForm site (kvs (dataFields dat)))
+         fldsOrdered <- orderedFields dat
+         r <- runForm "field-data-new" (fieldsForm site fldsOrdered)
          case r of
-           (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat)
+           (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered)
            (_, Just flds) -> do
              mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
              case mid of
