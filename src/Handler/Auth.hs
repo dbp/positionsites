@@ -69,9 +69,7 @@ signupHandler = do
      res <- with auth $ createUser email (T.encodeUtf8 password)
      case res of
        Left failure -> render' v  (Just (tshow failure))
-       Right user -> do
-         newUser (SiteUser (read $ T.unpack $ unUid (fromJust (userId user))) (-1) False)
-         redirect "/"
+       Right user -> redirect "/"
  where render' v msg = renderWithSplices "signup"
                        (digestiveSplices v <>
                         ("message" ## I.textSplice (fromMaybe "" msg)))

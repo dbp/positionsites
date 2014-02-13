@@ -30,5 +30,8 @@ getSiteById id' = singleQuery "select id, url, site_base, analyze_token from sit
 getSites :: AppHandler [Site]
 getSites = query_ "select id, url, site_base, analyze_token from sites"
 
+getUserSites :: Int -> AppHandler [Site]
+getUserSites i = query "select id, url, site_base, analyze_token from sites join users_sites on site_id = id where user_id = ?" (Only i)
+
 updateSite :: Site -> AppHandler ()
 updateSite (Site id' url base token) = void $ execute "update sites set url = ?, site_base = ?, analyze_token = ? where id = ?" (url, base, token, id')
