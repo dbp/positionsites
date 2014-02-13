@@ -25,14 +25,17 @@ import           Helpers.Forms
 import           State.User
 
 data UserData = UserData Text Text
-userForm :: Form Text AppHandler UserData
-userForm = UserData
-  <$> "email" .: emailForm Nothing
+udLogin :: UserData -> Text
+udLogin (UserData l _) = l
+
+userForm :: Formlet Text AppHandler UserData
+userForm u = UserData
+  <$> "email" .: emailForm (fmap udLogin u)
   <*> "password" .: passwordForm
 
 loginHandler :: AppHandler ()
 loginHandler = do
-  r <- runForm "login" userForm
+  r <- runForm "login" (userForm Nothing)
   case r of
     (v, Nothing) -> render' v Nothing
     (v, Just (UserData email password)) -> do
@@ -59,7 +62,7 @@ forgotHandler = undefined
 
 signupHandler :: AppHandler ()
 signupHandler = do
-  r <- runForm "signup" userForm
+  r <- runForm "signup" (userForm Nothing)
   case r of
     (v, Nothing) -> render' v Nothing
     (v, Just (UserData email password)) -> do
@@ -67,7 +70,7 @@ signupHandler = do
      case res of
        Left failure -> render' v  (Just (tshow failure))
        Right user -> do
-         newUser (SiteUser (read $ T.unpack $ unUid (fromJust (userId user))) False)
+         newUser (SiteUser (read $ T.unpack $ unUid (fromJust (userId user))) (-1) False)
          redirect "/"
  where render' v msg = renderWithSplices "signup"
                        (digestiveSplices v <>

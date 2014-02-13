@@ -47,6 +47,7 @@ import Splice.Data
 import Splice.Page
 import Splice.HeaderFile
 import Splice.Blob
+import Splice.User
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -94,6 +95,7 @@ manageSiteHandler = do
                 ,("/page/edit/:id", editPageHandler site)
                 ,("/header/new", newHeaderHandler site)
                 ,("/header/edit/:id", editHeaderHandler site)
+                ,("/user/new", newUserHandler site)
                 ,("/blob/new", newBlobHandler site)
                 ,("/blob/edit/:id", editBlobHandler site)
                 ]
@@ -104,9 +106,11 @@ showSiteHandler site = do
   pgs <- getSitePages site
   hdrs <- getSiteHeaders site
   blobs <- getSiteBlobs site
+  users <- getSiteUsers site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
+    "users" ## manageUsersSplice users
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
     "headers" ## manageHeadersSplice hdrs
@@ -216,6 +220,20 @@ newBlobHandler site = newGenHandler site (blobForm site Nothing) "blob/new" (voi
 
 editBlobHandler :: Site -> AppHandler ()
 editBlobHandler site = editGenHandler site getBlobById (blobForm site) "blob/edit" updateBlob
+
+newUserHandler :: Site -> AppHandler ()
+newUserHandler site = newGenHandler site (userForm Nothing) "user/new" $
+  \(UserData login pass) -> do mu <- with auth $ createUser login (encodeUtf8 pass)
+                               case mu of
+                                 Left err -> return ()
+                                 Right au ->
+                                   case userId au of
+                                     Nothing -> return ()
+                                     Just uid ->
+                                       newUser (SiteUser (read $ T.unpack $ unUid uid)
+                                                         (siteId site)
+                                                         False)
+
 
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.

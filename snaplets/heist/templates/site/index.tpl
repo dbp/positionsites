@@ -21,21 +21,32 @@
     });
   </script>
 
-  <h1 class="title">Dashboard for domain <domain/> (<a href="/site/${site_id}/edit">edit</a>).</h1>
+  <h1 class="title">Dashboard for domain <domain/>.</h1>
+
+  <h3 class="section-heading">Domain and Template</h3>
+  <div class="section">
+    <div class="section-elem">
+      <div class="section-name"><a href="/site/${site_id}/edit">edit</a></div>
+    </div> <!-- .section-elem -->
+  </div> <!-- .section -->
+
+  <h3 class="section-heading">Users (<a href="/site/${site_id}/user/new">add</a>)</h3>
+  <users>
+    <div class="section">
+      <div class="section-elem">
+        <div class="section-name"><login/></div>
+        <is-admin>Administrator</is-admin>
+      </div> <!-- .section-elem -->
+    </div> <!-- .section -->
+  </users>
+
 
   <h3 class="section-heading">Headers (<a href="/site/${site_id}/header/new">add</a>)</h3>
   <div class="section">
     <headers>
       <div class="section-elem">
         <div class="section-name"><name/> (<is-css>CSS</is-css><is-js>Javascript</is-js>)</div>
-        <table class="section-table">
-          <tr>
-            <td class="name">Meta</td>
-            <td>
-              <a href="/site/${site_id}/header/edit/${id}">edit</a>
-            </td>
-          </tr>
-        </table>
+        <a href="/site/${site_id}/header/edit/${id}">edit</a>
       </div> <!-- .section-elem -->
     </headers>
   </div> <!-- .section -->
@@ -70,20 +81,7 @@
             <structured/>
           </a>
         </div>
-        <table class="section-table">
-          <tr>
-            <td class="name">Meta</td>
-            <td>
-              <a href="/site/${site_id}/page/edit/${id}">edit</a>
-            </td>
-          </tr>
-          <tr>
-            <td class="name">Content</td>
-            <td class="textarea-readonly">
-              <textarea class='body-textarea'><body-html/></textarea>
-            </td>
-          </tr>
-        </table>
+        <a href="/site/${site_id}/page/edit/${id}">edit</a>
       </div>
     </pages>
   </div> <!-- .section -->
@@ -98,21 +96,8 @@
           <is-html>HTML</is-html>
           <is-markdown>Markdown</is-markdown>
           )</div>
-        <table class="section-table">
-          <tr>
-            <td class="name">Admins only</td>
-            <td>
-              <is-admin-only>Yes</is-admin-only>
-              <not-admin-only>No</not-admin-only>
-            </td>
-          </tr>
-          <tr>
-            <td class="name">Meta</td>
-            <td>
-              <a href="/site/${site_id}/blob/edit/${id}">edit</a>
-            </td>
-          </tr>
-        </table>
+        <is-admin-only>Admin Only</is-admin-only>
+        <a href="/site/${site_id}/blob/edit/${id}">edit</a>
       </div> <!-- .section-elem -->
     </blobs>
   </div> <!-- .section -->

@@ -216,7 +216,7 @@ apiOwnership site user item_id = admincheck user $ do
     Nothing -> passLog ["Item id not valid"]
     Just item -> do
       users <- getSiteUsers site
-      r <- runForm "ownership" (ownershipForm users (Just (SiteUser (itemOwnerId item) False)))
+      r <- runForm "ownership" (ownershipForm users (Just (SiteUser (itemOwnerId item) (siteId site) False)))
       case r of
         (v, Nothing) -> renderWithSplices "api/ownership" (digestiveSplices v)
         (_, Just su) -> do

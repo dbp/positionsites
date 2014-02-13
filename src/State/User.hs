@@ -12,19 +12,22 @@ import State.Site
 import Helpers.State
 
 data SiteUser = SiteUser { siteUserId :: Int
+                         , siteUserSiteId :: Int
                          , siteUserAdmin :: Bool
                          } deriving (Eq, Show)
 
 instance FromRow SiteUser where
-  fromRow = SiteUser <$> field <*> field
+  fromRow = SiteUser <$> field <*> field <*> field
 
 newUser :: SiteUser -> AppHandler ()
-newUser (SiteUser uid adm) = void $ execute "insert into users (id, admin) values (?,?)" (uid, adm)
+newUser (SiteUser uid si adm) =
+  void $ do execute "insert into users (id, admin) values (?,?)" (uid, adm)
+            execute "insert into users_sites (user_id, site_id) values (?,?)" (uid, si)
 
 getUser :: Int -> AppHandler (Maybe SiteUser)
-getUser id' = singleQuery "select id, admin from users where id = ?" (Only id')
+getUser id' = singleQuery "select id, site_id, admin from users join users_sites on id = user_id where id = ?" (Only id')
 
 getSiteUsers :: Site -> AppHandler [(SiteUser, Text)]
 getSiteUsers site = do
-  res <- query "select U.id, U.admin, A.login from users as U join users_sites as S on U.id = S.user_id join snap_auth_user as A on A.uid = U.id where S.site_id = ?" (Only (siteId site))
+  res <- query "select U.id, S.site_id, U.admin, A.login from users as U join users_sites as S on U.id = S.user_id join snap_auth_user as A on A.uid = U.id where S.site_id = ?" (Only (siteId site))
   forM res $ \(s :. Only t) -> return (s, t)
