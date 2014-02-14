@@ -7,6 +7,7 @@ import Control.Applicative
 import Snap.Snaplet.PostgresqlSimple
 import Data.ByteString (ByteString)
 import Data.Text (Text)
+import Data.Maybe
 import Application
 import State.Site
 import Helpers.State
@@ -32,6 +33,10 @@ instance FromRow Text where
 
 getUserNameById :: Int -> AppHandler (Maybe Text)
 getUserNameById id' = singleQuery "select login from snap_auth_user where uid = ?" (Only id')
+
+getUserAndNameById :: Int -> AppHandler (Maybe (SiteUser, Text))
+getUserAndNameById i = do r <- query "select U.id, S.site_id, U.admin, A.login from users as U join users_sites as S on U.id = S.user_id join snap_auth_user as A on A.uid = U.id where U.id = ?" (Only i)
+                          fmap listToMaybe $ forM r $ \(s :. Only t) -> return (s, t)
 
 getSiteUsers :: Site -> AppHandler [(SiteUser, Text)]
 getSiteUsers site = do

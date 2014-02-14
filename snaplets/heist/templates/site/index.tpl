@@ -23,12 +23,7 @@
 
   <h1 class="title">Dashboard for domain <domain/>.</h1>
 
-  <h3 class="section-heading">Domain and Template</h3>
-  <div class="section">
-    <div class="section-elem">
-      <div class="section-name"><a href="/site/${site_id}/edit">edit</a></div>
-    </div> <!-- .section-elem -->
-  </div> <!-- .section -->
+  <h3 class="section-heading">Domain and Template (<a href="/site/${site_id}/edit">edit</a>)</h3>
 
   <h3 class="section-heading">Users (<a href="/site/${site_id}/user/new">add</a>)</h3>
   <div class="section">
@@ -62,6 +57,24 @@
                    href="/site/${site_id}/header/delete/${id}">delete</a></td>
           </tr>
         </headers>
+      </table>
+    </div> <!-- .section-elem -->
+  </div> <!-- .section -->
+
+
+  <h3 class="section-heading">Files (<a href="/site/${site_id}/file/new">add</a>)</h3>
+
+  <div class="section">
+    <div class="section-elem">
+      <table class="section-table">
+        <files>
+          <tr>
+            <td class="name">Name</td>
+            <td><name/></td>
+            <td><a onclick="return confirm('Are you sure you want to delete this?');"
+                   href="/site/${site_id}/file/delete/${id}">delete</a></td>
+          </tr>
+        </files>
       </table>
     </div> <!-- .section-elem -->
   </div> <!-- .section -->

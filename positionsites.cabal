@@ -51,7 +51,8 @@ Executable positionsites
     http-client-tls == 0.2.0.2,
     connection < 0.2,
     analyze-client,
-    http-conduit
+    http-conduit,
+    directory
 
   if flag(old-base)
     build-depends:

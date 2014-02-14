@@ -33,6 +33,9 @@ nonEmpty = check "Must not be blank" tNotNull
 nonEmptyTextForm :: Form Text AppHandler Text
 nonEmptyTextForm = nonEmpty (text Nothing)
 
+noSpaces :: Form Text AppHandler Text -> Form Text AppHandler Text
+noSpaces = check "Cannot contain spaces" (\t -> not $ " " `T.isInfixOf` t)
+
 jsonMapForm :: FromJSON a => Form Text AppHandler (Map Text a)
 jsonMapForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict e) of
                                 Nothing -> Error "Not a valid JSON map."

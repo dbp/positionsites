@@ -25,6 +25,7 @@ import State.Data
 import State.Site
 import State.Image
 import State.User
+import Splice.User
 import Helpers.Text
 import Helpers.Misc
 
@@ -142,7 +143,8 @@ itemSplices s d i = ("delete" ## loginGuardSplice' i $ deleteSplice d i)
 
 fieldsSplices :: Site -> Data -> Item -> [(Text, FieldSpec)] -> Splices (Splice AppHandler)
 fieldsSplices s d i fields = (do "id" ## textSplice (tshow (itemId i))
-                                 "ownership" ## loginAdminGuardSplice (ownershipSplice i)) <>
+                                 "ownership" ## loginAdminGuardSplice (ownershipSplice i)
+                                 "owner" ## ownerSplice (itemOwnerId i)) <>
  (mconcat $ map (\(name, spec) -> do
               name ## fldSplice spec s d i name (M.lookup name (itemFields i))
               case spec of

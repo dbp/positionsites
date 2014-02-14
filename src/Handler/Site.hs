@@ -34,6 +34,7 @@ import Text.Digestive.Heist
 import Heist.Splices.BindStrict
 import Web.Analyze.Client
 import Network.HTTP.Conduit (Manager)
+import Snap.Util.FileUploads
 
 import Application
 import State.Site
@@ -43,11 +44,13 @@ import State.Image
 import State.User
 import State.HeaderFile
 import State.Blob
+import State.File
 import Splice.Data
 import Splice.Page
 import Splice.HeaderFile
 import Splice.Blob
 import Splice.User
+import Splice.File
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -100,6 +103,8 @@ manageSiteHandler = do
                 ,("/user/edit/:id", editUserHandler site)
                 ,("/blob/new", newBlobHandler site)
                 ,("/blob/edit/:id", editBlobHandler site)
+                ,("/file/new", newFileHandler site)
+                ,("/file/delete/:id", deleteFileHandler site)
                 ]
 
 showSiteHandler :: Site -> AppHandler ()
@@ -109,6 +114,7 @@ showSiteHandler site = do
   hdrs <- getSiteHeaders site
   blobs <- getSiteBlobs site
   users <- getSiteUsers site
+  files <- getSiteFiles site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
     "domain" ## textSplice (siteUrl site)
@@ -117,6 +123,7 @@ showSiteHandler site = do
     "pages" ## managePagesSplice pgs
     "headers" ## manageHeadersSplice hdrs
     "blobs" ## manageBlobsSplice blobs
+    "files" ## manageFilesSplice files
 
 editSiteHandler :: Site -> AppHandler ()
 editSiteHandler site = do
@@ -270,6 +277,33 @@ editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" 
                                  Nothing -> return Nothing
                                  Just n -> return (Just (UserData n ""))
 
+fileForm :: Site -> Maybe File -> Form Text AppHandler File
+fileForm site f = mkFile <$> "name" .: (T.toLower <$> noSpaces (nonEmpty (text (fmap fileName f))))
+                         <*> "file" .: imageForm
+  where mkFile = File (-1) (siteId site)
+
+newFileHandler :: Site -> AppHandler ()
+newFileHandler site =
+  do r <- runFormWith (defaultSnapFormConfig {
+             uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
+           , partPolicy = const $ allowWithMaximumSize tenmegs})
+          "file-form"
+          (fileForm site Nothing)
+     case r of
+       (v, Nothing) -> renderWithSplices "file/new" (digestiveSplices v)
+       (_, Just f) ->
+             do i <- newFile f
+                case i of
+                  Nothing -> return ()
+                  Just i' -> do
+                    p <- storeFile (tshow i') (filePath f) site
+                    updateFile f { fileId = i', filePath = p}
+                redirect (sitePath site)
+  where tenmegs = 10 * 1024 * 1024
+
+deleteFileHandler :: Site -> AppHandler ()
+deleteFileHandler site = deleteGenHandler site deleteFile
+
 
 -- What follows is routing the frontend of the site, ie when accessed from the
 -- site's domain.
@@ -302,6 +336,7 @@ siteHandler man site =
                    ,("/logout", logoutHandler)
                    ,("/signup", signupHandler)
                    ,("/images/:name", imagesHandler site)
+                   ,("/files/:name", filesHandler site)
                    ,("/header/:id", headerHandler site)
                    ,("", do pages <- getSitePages site
                             routePages site pages)]
@@ -318,6 +353,18 @@ imagesHandler site =
        Just name ->
          do repo <- getImageRepository
             serveFile ((T.unpack repo) ++ "/" ++ (B8.unpack name))
+
+filesHandler :: Site -> AppHandler ()
+filesHandler site =
+ do n <- getParam "name"
+    case fmap decodeUtf8 n of
+      Nothing -> pass
+      Just name ->
+        case (tshow (siteId site)) `T.isPrefixOf` name of
+          True ->
+            do repo <- getFileRepository
+               serveFile ((T.unpack repo) ++ "/" ++ (T.unpack name))
+          False -> pass
 
 headerHandler :: Site -> AppHandler ()
 headerHandler site =
@@ -440,6 +487,17 @@ prefixUrlSplice = do node <- getParamNode
                                       then return (elementChildren node)
                                       else return []
 
+fileSplice :: Site -> Splice AppHandler
+fileSplice site = do
+ node <- getParamNode
+ case "name" `L.lookup` (elementAttrs node) of
+   Nothing -> return []
+   Just name -> do
+     f <- lift $ getFileByName name site
+     case f of
+       Nothing -> return []
+       Just file -> return [TextNode (T.append "/files" (filePath file))]
+
 siteSplices :: Site ->  Splices (Splice AppHandler)
 siteSplices site = do "rebind" ## rebindSplice
                       "authlink" ## authLinkSplice
@@ -449,6 +507,7 @@ siteSplices site = do "rebind" ## rebindSplice
                       "set-blob" ## setBlobSplice site
                       "is-url" ## isUrlSplice
                       "prefix-url" ## prefixUrlSplice
+                      "file" ## fileSplice site
                       bindStrictTag ## bindStrictImpl
 
 renderPage :: Site -> Page -> AppHandler ()
