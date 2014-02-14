@@ -1,5 +1,7 @@
 <apply template="api_base">
 
+  <h3>Set a new image</h3>
+
 <dfForm method="post">
   <table>
     <tr>

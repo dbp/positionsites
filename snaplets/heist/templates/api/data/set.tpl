@@ -6,6 +6,8 @@
     });
   </script>
 
+  <h3>Set the "<field-ref/>"</h3>
+
   <dfForm method="post">
     <table class="ps-fields">
       <tr>

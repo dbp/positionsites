@@ -6,6 +6,8 @@
     });
   </script>
 
+  <h3>Add a new "<name/>"</h3>
+
 <dfForm method="post">
   <table class="ps-fields">
     <fields>

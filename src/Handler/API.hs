@@ -33,6 +33,7 @@ import State.User
 import State.Blob
 import Splice.Data
 import Splice.Page
+import Splice.Blob
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -172,7 +173,7 @@ apiBlobSet site user blob_id = do
                                 else forbidden
   where run blob = do r <- runForm "set-blob" (setBlobForm blob)
                       case r of
-                        (v, Nothing) -> renderWithSplices "api/blob/set" (digestiveSplices v)
+                        (v, Nothing) -> renderWithSplices "api/blob/set" (digestiveSplices v <> manageBlobSplices blob)
                         (_, Just blob') -> do updateBlob blob'
                                               modifyResponse (setResponseCode 201)
                                               return ()
@@ -189,7 +190,7 @@ apiNewItem site user data_id = do
       r <- runForm "new-item" (fieldsForm site fldsOrdered)
       case r of
         (v, Nothing) ->
-          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered)
+          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumSplices dat)
         (_, Just flds) -> do
           newItem (Item (-1) (dataId dat) (dataSiteId dat) (siteUserId user) (fromList flds))
           modifyResponse (setResponseCode 201)
