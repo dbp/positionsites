@@ -31,26 +31,39 @@
   </div> <!-- .section -->
 
   <h3 class="section-heading">Users (<a href="/site/${site_id}/user/new">add</a>)</h3>
-  <users>
-    <div class="section">
-      <div class="section-elem">
-        <div class="section-name"><login/></div>
-        <is-admin>Administrator</is-admin>
-      </div> <!-- .section-elem -->
-    </div> <!-- .section -->
-  </users>
+  <div class="section">
+    <div class="section-elem">
+      <table class="section-table">
+        <users>
+          <tr>
+            <td class="name">Username</td>
+            <td><login/><is-admin> (admin)</is-admin></td>
+            <td>
+              <a href="/site/${site_id}/user/edit/${id}">edit</a>
+            </td>
+          </tr>
+        </users>
+      </table>
+    </div> <!-- .section-elem -->
+  </div> <!-- .section -->
 
 
   <h3 class="section-heading">Headers (<a href="/site/${site_id}/header/new">add</a>)</h3>
+
   <div class="section">
-    <headers>
-      <div class="section-elem">
-        <div class="section-name"><name/> (<is-css>CSS</is-css><is-js>Javascript</is-js>)</div>
-        <a href="/site/${site_id}/header/edit/${id}">edit</a> |
-        <a onclick="return confirm('Are you sure you want to delete this?');"
-           href="/site/${site_id}/header/delete/${id}">delete</a>
-      </div> <!-- .section-elem -->
-    </headers>
+    <div class="section-elem">
+      <table class="section-table">
+        <headers>
+          <tr>
+            <td class="name">Name</td>
+            <td><name/> (<is-css>CSS</is-css><is-js>Javascript</is-js>)</td>
+            <td><a href="/site/${site_id}/header/edit/${id}">edit</a></td>
+            <td><a onclick="return confirm('Are you sure you want to delete this?');"
+                   href="/site/${site_id}/header/delete/${id}">delete</a></td>
+          </tr>
+        </headers>
+      </table>
+    </div> <!-- .section-elem -->
   </div> <!-- .section -->
 
 
@@ -91,17 +104,22 @@
 
   <h3 class="section-heading">Blobs (<a href="/site/${site_id}/blob/new">add</a>)</h3>
   <div class="section">
-    <blobs>
-      <div class="section-elem">
-        <div class="section-name"><name/> (
-          <is-plain>Plain</is-plain>
-          <is-html>HTML</is-html>
-          <is-markdown>Markdown</is-markdown>
-          )</div>
-        <is-admin-only>Admin Only</is-admin-only>
-        <a href="/site/${site_id}/blob/edit/${id}">edit</a>
-      </div> <!-- .section-elem -->
-    </blobs>
+    <div class="section-elem">
+      <table class="section-table">
+        <blobs>
+          <tr>
+            <td class="name">Name</td>
+            <td><name/> (
+              <is-plain>Plain</is-plain>
+              <is-html>HTML</is-html>
+              <is-markdown>Markdown</is-markdown>
+              )</td>
+            <td><is-admin-only>Admin Only</is-admin-only></td>
+            <td><a href="/site/${site_id}/blob/edit/${id}">edit</a></td>
+          </tr>
+        </blobs>
+      </table>
+    </div> <!-- .section-elem -->
   </div> <!-- .section -->
 
 </apply>

@@ -97,6 +97,7 @@ manageSiteHandler = do
                 ,("/header/edit/:id", editHeaderHandler site)
                 ,("/header/delete/:id", deleteHeaderHandler site)
                 ,("/user/new", newUserHandler site)
+                ,("/user/edit/:id", editUserHandler site)
                 ,("/blob/new", newBlobHandler site)
                 ,("/blob/edit/:id", editBlobHandler site)
                 ]
@@ -237,16 +238,37 @@ editBlobHandler site = editGenHandler site getBlobById (blobForm site) "blob/edi
 
 newUserHandler :: Site -> AppHandler ()
 newUserHandler site = newGenHandler site (userForm Nothing) "user/new" $
-  \(UserData login pass) -> do mu <- with auth $ createUser login (encodeUtf8 pass)
-                               case mu of
-                                 Left err -> return ()
-                                 Right au ->
-                                   case userId au of
-                                     Nothing -> return ()
-                                     Just uid ->
-                                       newUser (SiteUser (read $ T.unpack $ unUid uid)
-                                                         (siteId site)
-                                                         False)
+  \(UserData login p) -> do mu <- with auth $ createUser login (encodeUtf8 p)
+                            case mu of
+                              Left err -> return ()
+                              Right au ->
+                                case userId au of
+                                  Nothing -> return ()
+                                  Just uid ->
+                                    newUser (SiteUser (read $ T.unpack $ unUid uid)
+                                                      (siteId site)
+                                                      False)
+
+editUserHandler :: Site -> AppHandler ()
+editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" $
+  \(UserData login p) ->
+    do mid <- getParam "id"
+       case bsId mid of
+         Nothing -> redirect (sitePath site)
+         Just id' -> do
+           mu <- with auth $ withBackend $ \r -> liftIO $ lookupByUserId r (UserId (tshow id'))
+           case mu of
+             Nothing -> redirect (sitePath site)
+             Just au ->
+               do let newau = case p of
+                                "" -> au
+                                _ -> au { userPassword = Just (ClearText (encodeUtf8 p)) }
+                  with auth $ saveUser newau { userLogin = login }
+                  redirect (sitePath site)
+  where getUserData id' _ = do mn <- getUserNameById id'
+                               case mn of
+                                 Nothing -> return Nothing
+                                 Just n -> return (Just (UserData n ""))
 
 
 -- What follows is routing the frontend of the site, ie when accessed from the

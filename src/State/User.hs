@@ -27,6 +27,12 @@ newUser (SiteUser uid si adm) =
 getUser :: Int -> AppHandler (Maybe SiteUser)
 getUser id' = singleQuery "select id, site_id, admin from users join users_sites on id = user_id where id = ?" (Only id')
 
+instance FromRow Text where
+  fromRow = field
+
+getUserNameById :: Int -> AppHandler (Maybe Text)
+getUserNameById id' = singleQuery "select login from snap_auth_user where uid = ?" (Only id')
+
 getSiteUsers :: Site -> AppHandler [(SiteUser, Text)]
 getSiteUsers site = do
   res <- query "select U.id, S.site_id, U.admin, A.login from users as U join users_sites as S on U.id = S.user_id join snap_auth_user as A on A.uid = U.id where S.site_id = ?" (Only (siteId site))

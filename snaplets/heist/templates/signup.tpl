@@ -2,7 +2,7 @@
 
   <h1 class="title">Signup</h1>
 
-  <apply template="user_form"></apply>
+  <apply template="user/form"></apply>
 
 
 </apply>

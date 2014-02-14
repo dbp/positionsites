@@ -30,16 +30,21 @@ udLogin (UserData l _) = l
 
 userForm :: Formlet Text AppHandler UserData
 userForm u = UserData
-  <$> "email" .: emailForm (fmap udLogin u)
+  <$> "username" .: (T.toLower <$> nonEmpty (text (fmap udLogin u)))
   <*> "password" .: passwordForm
+
+editUserForm :: Formlet Text AppHandler UserData
+editUserForm u = UserData
+  <$> "username" .: (T.toLower <$> nonEmpty (text (fmap udLogin u)))
+  <*> "password" .: text Nothing
 
 loginHandler :: AppHandler ()
 loginHandler = do
   r <- runForm "login" (userForm Nothing)
   case r of
     (v, Nothing) -> render' v Nothing
-    (v, Just (UserData email password)) -> do
-      res <- with auth $ loginByUsername email (ClearText (T.encodeUtf8 password)) False
+    (v, Just (UserData username password)) -> do
+      res <- with auth $ loginByUsername username (ClearText (T.encodeUtf8 password)) False
       case res of
         Left failure -> render' v  (Just (tshow failure))
         Right user -> do
@@ -65,8 +70,8 @@ signupHandler = do
   r <- runForm "signup" (userForm Nothing)
   case r of
     (v, Nothing) -> render' v Nothing
-    (v, Just (UserData email password)) -> do
-     res <- with auth $ createUser email (T.encodeUtf8 password)
+    (v, Just (UserData username password)) -> do
+     res <- with auth $ createUser username (T.encodeUtf8 password)
      case res of
        Left failure -> render' v  (Just (tshow failure))
        Right user -> redirect "/"
