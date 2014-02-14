@@ -46,7 +46,9 @@
     <headers>
       <div class="section-elem">
         <div class="section-name"><name/> (<is-css>CSS</is-css><is-js>Javascript</is-js>)</div>
-        <a href="/site/${site_id}/header/edit/${id}">edit</a>
+        <a href="/site/${site_id}/header/edit/${id}">edit</a> |
+        <a onclick="return confirm('Are you sure you want to delete this?');"
+           href="/site/${site_id}/header/delete/${id}">delete</a>
       </div> <!-- .section-elem -->
     </headers>
   </div> <!-- .section -->

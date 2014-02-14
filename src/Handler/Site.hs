@@ -95,6 +95,7 @@ manageSiteHandler = do
                 ,("/page/edit/:id", editPageHandler site)
                 ,("/header/new", newHeaderHandler site)
                 ,("/header/edit/:id", editHeaderHandler site)
+                ,("/header/delete/:id", deleteHeaderHandler site)
                 ,("/user/new", newUserHandler site)
                 ,("/blob/new", newBlobHandler site)
                 ,("/blob/edit/:id", editBlobHandler site)
@@ -161,6 +162,16 @@ editGenHandler site getter form tmpl updt = do
               updt x
               redirect (sitePath site)
 
+deleteGenHandler :: Site
+                 -> (Int -> Site -> AppHandler ())
+                 -> AppHandler ()
+deleteGenHandler site dlt = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just id' -> do dlt id' site
+                   redirect (sitePath site)
+
 newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
 newDataForm = (,) <$> "name"   .: nonEmptyTextForm
                   <*> "fields" .: jsonMapForm
@@ -188,7 +199,7 @@ headerForm site h = mkHeader <$> "name" .: nonEmpty (text $ fmap headerFileName 
                              <*> "type" .: choice [ (HeaderCSS, "CSS")
                                                   , (HeaderJavascript, "Javascript")]
                                                   (fmap headerFileType h)
-                             <*> "content" .: validateHtml (nonEmpty (text $ fmap headerFileContent h))
+                             <*> "content" .: nonEmpty (text $ fmap headerFileContent h)
   where mkHeader n t c = case h of
                            Nothing -> HeaderFile (-1) (siteId site) t n c
                            Just header -> header { headerFileType = t
@@ -201,6 +212,9 @@ newHeaderHandler site = newGenHandler site (headerForm site Nothing) "header/new
 
 editHeaderHandler :: Site -> AppHandler ()
 editHeaderHandler site = editGenHandler site getHeaderById (headerForm site) "header/edit" updateHeader
+
+deleteHeaderHandler :: Site -> AppHandler ()
+deleteHeaderHandler site = deleteGenHandler site deleteHeaderFile
 
 blobForm :: Site -> Maybe Blob -> Form Text AppHandler Blob
 blobForm site b = mkBlob <$> "name" .: nonEmpty (text (fmap blobName b))

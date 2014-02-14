@@ -54,5 +54,9 @@ newHeader (HeaderFile _ si t n c) = idQuery "insert into header_files (site_id, 
 updateHeader :: HeaderFile -> AppHandler ()
 updateHeader (HeaderFile i si t n c) = void $ execute "update header_files set site_id = ?, type = ?, name = ?, content = ? where id = ?" (si, t, n, c, i)
 
+deleteHeaderFile :: Int -> Site -> AppHandler ()
+deleteHeaderFile id' site = void $ execute "delete from header_files where id = ? and site_id = ?" (id', siteId site)
+
+
 getHeaderById :: Int -> Site -> AppHandler (Maybe HeaderFile)
 getHeaderById id' site = singleQuery "select id, site_id, type, name, content from header_files where id = ? and site_id = ?" (id', siteId site)
