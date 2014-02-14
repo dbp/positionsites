@@ -9,6 +9,8 @@ import qualified Data.Text.Encoding as T
 import Data.ByteString.Lazy (toStrict)
 import Data.Monoid
 import Data.Maybe
+import Data.List (sortBy)
+import Data.Ord (comparing)
 import qualified Data.Map as M
 import "mtl" Control.Monad.Trans (lift, liftIO)
 import Snap.Snaplet
@@ -25,6 +27,7 @@ import State.Image
 import State.User
 import Helpers.Text
 import Helpers.Misc
+
 
 loginGuardSplice :: Splice AppHandler -> Splice AppHandler
 loginGuardSplice s = do
@@ -117,10 +120,20 @@ dataSplices s d = do
   T.append "all-" (dataName d) ## renderAllItems s d
   T.append "new-" (dataName d) ## loginGuardSplice $ newItemSplice d
 
+data SortOrder = ASC | DESC deriving (Eq, Show, Read)
+
 renderAllItems :: Site -> Data -> Splice AppHandler
 renderAllItems s d = do
+  sort <- fmap (lookup "sort" . X.elementAttrs) getParamNode
   items <- lift $ getItems d
-  mapSplices (runChildrenWith . itemSplices s d) items
+  let sorted = case sort of
+                 Nothing -> items
+                 Just s -> case T.splitOn ":" s  of
+                             (f:[]) -> sortItems f DESC items
+                             (f:o:[]) -> sortItems f (read (T.unpack o)) items
+  mapSplices (runChildrenWith . itemSplices s d) sorted
+  where sortItems fld DESC = sortBy (comparing ((M.! fld) . itemFields))
+        sortItems fld ASC = sortBy (flip (comparing ((M.! fld) . itemFields)))
 
 itemSplices :: Site -> Data -> Item
             -> Splices (Splice AppHandler)
