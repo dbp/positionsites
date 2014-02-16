@@ -76,6 +76,10 @@ manageDatumSplices d = do
   "fields" ## textSplice (T.decodeUtf8 $ toStrict $ encode (dataFields d))
   "item-count" ## itemCountSplice d
 
+manageDatumNameSplice :: Data -> Splices (Splice AppHandler)
+manageDatumNameSplice d = do
+  "name" ## textSplice (dataName d)
+
 itemCountSplice :: Data -> Splice AppHandler
 itemCountSplice d = do
   count <- lift (itemCount d)

@@ -44,7 +44,7 @@ managementRoutes = [("/login", loginHandler)
                    ,("/reset", resetHandler)
                    ,("/forgot", forgotHandler)
                    ,("/signup", signupHandler)
-                   ,("/", requireAdmin $ ifTop indexHandler)
+                   ,("/", ifTop indexHandler)
                    ,("/new", requireAdmin newSiteHandler)
                    ,("/site/:id", requireAdmin manageSiteHandler)
                    ]

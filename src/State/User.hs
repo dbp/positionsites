@@ -25,6 +25,9 @@ newUser (SiteUser uid si adm) =
   void $ do execute "insert into users (id, admin) values (?,?)" (uid, adm)
             execute "insert into users_sites (user_id, site_id) values (?,?)" (uid, si)
 
+newSiteUser :: SiteUser -> AppHandler ()
+newSiteUser (SiteUser uid si _) = void $ execute "insert into users_sites (user_id, site_id) values (?,?)" (uid, si)
+
 getUser :: Int -> AppHandler (Maybe SiteUser)
 getUser id' = singleQuery "select id, site_id, admin from users join users_sites on id = user_id where id = ?" (Only id')
 

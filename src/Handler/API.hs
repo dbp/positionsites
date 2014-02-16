@@ -190,7 +190,7 @@ apiNewItem site user data_id = do
       r <- runForm "new-item" (fieldsForm site fldsOrdered)
       case r of
         (v, Nothing) ->
-          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumSplices dat)
+          renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumNameSplice dat)
         (_, Just flds) -> do
           newItem (Item (-1) (dataId dat) (dataSiteId dat) (siteUserId user) (fromList flds))
           modifyResponse (setResponseCode 201)
@@ -238,11 +238,12 @@ apiSetFieldItem site user item_id field = itemDataFieldSpecLookup site item_id f
           return ()
 
 apiListAddItem :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec -> AppHandler ()
-apiListAddItem user site _item_id field item _dat spec = authcheck user item $ do
+apiListAddItem user site _item_id field item dat spec = authcheck user item $ do
   r <- runForm "list-add" (fieldForm site field spec Nothing)
   case r of
     (v, Nothing) -> renderWithSplices "api/data/set" (digestiveSplices v
-                                              <> fieldsSplice (field, spec))
+                                              <> fieldsSplice (field, spec)
+                                              <> manageDatumNameSplice dat)
     (_, Just (_, val)) -> do
       let flds = itemFields item
       updateItem $ item { itemFields = insert field
@@ -341,9 +342,9 @@ apiNewDataHandler user site field item spec' field_update = authcheck user item 
         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
         Just dat -> do
          fldsOrdered <- orderedFields dat
-         r <- runForm "field-data-new" (fieldsForm site fldsOrdered)
+         r <- runForm' "field-data-new" (fieldsForm site fldsOrdered)
          case r of
-           (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered)
+           (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumNameSplice dat)
            (_, Just flds) -> do
              mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
              case mid of
@@ -372,8 +373,7 @@ apiSetImageField :: SiteUser -> Site -> Int -> Text -> Item -> Data -> FieldSpec
 apiSetImageField user site item_id field item _dat spec' = authcheck user item $
   case spec' of
     ImageFieldSpec -> do
-      r <- runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
-                                              , partPolicy = const $ allowWithMaximumSize tenmegs}) "image-form" ("file" .: imageForm)
+      r <- runForm' "image-form" ("file" .: imageForm)
       case r of
         (v, Nothing) -> renderWithSplices "api/data/image" (digestiveSplices v)
         (_, Just path) -> do
@@ -382,4 +382,3 @@ apiSetImageField user site item_id field item _dat spec' = authcheck user item $
           updateItem $ item { itemFields = insert field (ImageFieldData (imageId image)) flds}
           modifyResponse (setResponseCode 201)
           return ()
-  where tenmegs = 10 * 1024 * 1024

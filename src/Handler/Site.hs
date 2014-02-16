@@ -79,7 +79,10 @@ newSiteHandler = do
       mid <- newSite (Site (-1) url base (if token == "" then Nothing else Just token))
       case mid of
         Nothing -> error "Site could not be created"
-        Just site_id -> redirect (sitePath (Site site_id "" "" Nothing))
+        Just site_id -> do
+          user <- fmap fromJust $ with auth currentUser
+          newSiteUser (SiteUser ((read . T.unpack . unUid . fromJust . userId) user) site_id False)
+          redirect (sitePath (Site site_id "" "" Nothing))
 
 manageSiteHandler :: AppHandler ()
 manageSiteHandler = do
@@ -284,9 +287,7 @@ fileForm site f = mkFile <$> "name" .: (T.toLower <$> noSpaces (nonEmpty (text (
 
 newFileHandler :: Site -> AppHandler ()
 newFileHandler site =
-  do r <- runFormWith (defaultSnapFormConfig {
-             uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
-           , partPolicy = const $ allowWithMaximumSize tenmegs})
+  do r <- runForm'
           "file-form"
           (fileForm site Nothing)
      case r of
@@ -299,7 +300,6 @@ newFileHandler site =
                     p <- storeFile (tshow i') (filePath f) site
                     updateFile f { fileId = i', filePath = p}
                 redirect (sitePath site)
-  where tenmegs = 10 * 1024 * 1024
 
 deleteFileHandler :: Site -> AppHandler ()
 deleteFileHandler site = deleteGenHandler site deleteFile
@@ -379,7 +379,7 @@ headerHandler site =
 
 routePages :: Site -> [Page] -> AppHandler ()
 routePages site pgs =
-  route (map (\p -> (pageFlat p, renderPage site p))
+  route (map (\p -> (pageFlat p, ifTop $ renderPage site p))
              pgs)
 
 rebindSplice :: Splice AppHandler

@@ -2,11 +2,14 @@
 
 module Helpers.Forms where
 
+import Snap.Core
 import Control.Monad.Trans (liftIO)
 import Data.Traversable (sequenceA)
 import Data.Map (Map)
 import Data.Aeson hiding (Error, Success, (.:))
 import Text.Digestive
+import Text.Digestive.Snap
+import Snap.Util.FileUploads
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as LT
@@ -14,11 +17,17 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Data.Text (Text)
 import Text.XmlHtml
 
+
 import Application
 import Helpers.Text
 import State.User (SiteUser)
 import State.Site (Site)
 import State.Data (Item(..), FieldSpec(..), FieldData, parseSpec, renderFieldData, shortName)
+
+runForm' :: MonadSnap m	 => Text -> Form v m a -> m (View v, Maybe a)
+runForm' = runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
+                                              , partPolicy = const $ allowWithMaximumSize tenmegs})
+  where tenmegs = 10 * 1024 * 1024
 
 emailForm :: Maybe Text -> Form Text AppHandler Text
 emailForm email = check "Not a valid email address." (\e -> T.isInfixOf "@" e) $
