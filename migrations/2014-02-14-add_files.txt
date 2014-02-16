@@ -1,0 +1,13 @@
+Description: (Description here.)
+Created: 2014-02-14 19:50:06.860288 UTC
+Depends: 2014-01-21-add_site_base 2014-01-13-add_data_name 2014-01-13-add_body_to_pages 2014-01-13-base_schema
+Apply:
+  CREATE TABLE files (
+    id serial primary key,
+    site_id integer not null references sites(id),
+    name text not null,
+    path text not null
+  );
+
+Revert:
+  DROP TABLE files;
