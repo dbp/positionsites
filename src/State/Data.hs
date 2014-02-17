@@ -103,6 +103,14 @@ data FieldData = StringFieldData Text
    deriving (Show, Eq, Typeable, Ord)
 $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''FieldData)
 
+defaultFields :: Data -> Map Text FieldData
+defaultFields dat = M.map defaultField (dataFields dat)
+ where defaultField StringFieldSpec = StringFieldData ""
+       defaultField NumberFieldSpec = NumberFieldData 0
+       defaultField ImageFieldSpec = ImageFieldData (-1)
+       defaultField (ListFieldSpec _) = ListFieldData []
+       defaultField (DataFieldSpec _) = DataFieldData Nothing
+
 renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
 renderFieldData (NumberFieldData n) = tshow n

@@ -5,6 +5,7 @@ module Handler.API where
 import Prelude hiding (lookup)
 import Control.Applicative
 import Data.Map (fromList, lookup, insert, (!))
+import qualified Data.Map as M
 import Data.Monoid
 import Data.Maybe
 import Snap.Core
@@ -192,7 +193,11 @@ apiNewItem site user data_id = do
         (v, Nothing) ->
           renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumNameSplice dat)
         (_, Just flds) -> do
-          newItem (Item (-1) (dataId dat) (dataSiteId dat) (siteUserId user) (fromList flds))
+          newItem (Item (-1)
+                        (dataId dat)
+                        (dataSiteId dat)
+                        (siteUserId user)
+                        (M.unionWith (curry snd) (defaultFields dat) (fromList flds)))
           modifyResponse (setResponseCode 201)
           render "api/data/new_success"
 
@@ -346,7 +351,11 @@ apiNewDataHandler user site field item spec' field_update = authcheck user item 
          case r of
            (v, Nothing) -> renderWithSplices "api/data/new" (digestiveSplices v <> apiFieldsSplice dat fldsOrdered <> manageDatumNameSplice dat)
            (_, Just flds) -> do
-             mid <- newItem (Item (-1) (dataId dat) (dataSiteId dat) 1 (fromList flds))
+             mid <- newItem (Item (-1)
+                                  (dataId dat)
+                                  (dataSiteId dat)
+                                  1
+                                  (M.unionWith (curry snd) (defaultFields dat) (fromList flds)))
              case mid of
                Nothing -> error "Could not create new item"
                Just id' -> do
