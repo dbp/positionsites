@@ -270,9 +270,9 @@ editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" 
            case mu of
              Nothing -> redirect (sitePath site)
              Just au ->
-               do let newau = case p of
-                                "" -> au
-                                _ -> au { userPassword = Just (ClearText (encodeUtf8 p)) }
+               do newau <- case p of
+                                   "" -> return au
+                                   _ -> liftIO $ setPassword au (encodeUtf8 p)
                   with auth $ saveUser newau { userLogin = login }
                   redirect (sitePath site)
   where getUserData id' _ = do mn <- getUserNameById id'

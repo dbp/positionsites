@@ -47,7 +47,7 @@ storeFile :: Text -> Text -> Site -> AppHandler Text
 storeFile key tmp site = do repo <- getFileRepository
                             let p = T.unpack tmp
                             let ext = if "." `T.isInfixOf` tmp
-                                      then reverse $ takeWhile (\c -> c /= '.' && c /= '/') $ reverse
+                                      then reverse $ takeWhile (\c -> c /= '.' && c /= '/') $ reverse p
                                       else ""
                             let newpath = T.concat ["/", tshow (siteId site)
                                                    , "_", key, ".", T.pack ext]

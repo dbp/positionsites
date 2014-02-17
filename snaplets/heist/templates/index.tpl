@@ -27,7 +27,7 @@
       <li>Add users, css and javascript, and any static pieces of text that will be editable.</li>
     </ol>
 
-    <p><a class="ps-link" href="/login">Login</a></p>
+    <p><a href="/login">Login</a></p>
   </ifLoggedOut>
 
 </apply>
