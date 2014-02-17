@@ -74,6 +74,39 @@ orderedFields dat = do
        let flds = T.splitOn "," $ decodeUtf8 o in
        mapMaybe (\f -> (f,) <$> lookup f (dataFields dat)) flds
 
+getFromItems :: Site -> AppHandler (Maybe [Item])
+getFromItems site =
+  do mf <- fmap (fmap decodeUtf8) $ getParam "from"
+     case mf >>= parseFrom of
+       Nothing -> return Nothing
+       Just (dname, did, dfield) ->
+         do md <- getDataByName site dname
+            case md of
+              Nothing -> return Nothing
+              Just dat ->
+                case M.lookup dfield (dataFields dat)  of
+                  Nothing -> return Nothing
+                  Just fldspec ->
+                    case fldspec of
+                      ListFieldSpec (DataFieldSpec nm) ->
+                        do mi <- getItemById site did
+                           case mi of
+                             Nothing -> return Nothing
+                             Just it -> case (itemFields it) ! dfield  of
+                                          ListFieldData its -> fmap (Just . catMaybes) $ mapM (getItemById site) (mapMaybe (\(DataFieldData i) -> i) its)
+                      _ -> return Nothing
+  where parseFrom s =
+          -- NOTE(dbp 2014-02-17): Yes, this is a poor excuse of a parser.
+          -- we're looking for type:id.field
+          case T.splitOn "." s of
+            (ds:fld:[]) ->
+              case T.splitOn ":" ds of
+                (nm:i:[]) ->
+                  do ip <- readSafe (T.unpack i)
+                     return (nm, ip, fld)
+                _ -> Nothing
+            _ -> Nothing
+
 apiId :: (Int -> AppHandler ()) -> AppHandler ()
 apiId hndlr = do
   mid <- getParam "id"
@@ -315,7 +348,10 @@ apiExistingDataHandler user site field item spec' field_update = authcheck user 
       case mdat of
         Nothing -> error $ "Bad data name: " ++ (T.unpack nm)
         Just dat -> do
-          items <- if (siteUserAdmin user) then getItems dat else getUserItems dat user
+          mf <- getFromItems site
+          items <- case mf of
+                     Nothing -> if (siteUserAdmin user) then getItems dat else getUserItems dat user
+                     Just items -> return items
           r <- runForm "field-data-existing" (fieldDataExistingForm items)
           case r of
             (v, Nothing) -> renderWithSplices "api/data/field/existing" (digestiveSplices v)

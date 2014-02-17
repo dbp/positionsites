@@ -276,6 +276,13 @@ getOrderedParam = do n <- getParamNode
                                Nothing -> ""
                                Just o' -> T.append "?order=" o'
 
+getFromParam :: HeistT n AppHandler Text
+getFromParam = do n <- getParamNode
+                  let mo = lookup "from" (X.elementAttrs n)
+                  return $ case mo of
+                            Nothing -> ""
+                            Just o' -> T.append "?from=" o'
+
 newItemSplice :: Data -> Splice AppHandler
 newItemSplice d = do
    o <- getOrderedParam
@@ -316,7 +323,9 @@ deleteDataFieldSplice :: Item -> Text -> Splice AppHandler
 deleteDataFieldSplice i nm = linkSplice deletePoint (T.concat ["/api/delete/", tshow (itemId i), "/data/", nm])
 
 setDataFieldExistingSplice :: Item -> Text -> Splice AppHandler
-setDataFieldExistingSplice i nm = linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing"])
+setDataFieldExistingSplice i nm = do
+  f <- getFromParam
+  linkSplice editPoint (T.concat ["/api/set/", tshow (itemId i), "/data/", nm, "/existing", f])
 
 setDataFieldNewSplice :: Item -> Text -> Splice AppHandler
 setDataFieldNewSplice i nm = do
