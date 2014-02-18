@@ -30,7 +30,7 @@
 
 
         <div id="footer">
-          designed and built by <a href="http://positionstudios.com" target="_blank">Position Studios</a>. &copy; 2014. it's all <a href="http://github.com/dbp/positionsites" target="_blank">open source</a>.
+          designed and built by <a href="http://positionstudios.com" target="_blank">Position Studios</a>. &copy; 2014. <a href="/docs">documentation</a>. it's all <a href="http://github.com/dbp/positionsites" target="_blank">open source</a>.
         </div>
       </div> <!-- #wrap -->
     </div>
