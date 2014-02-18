@@ -20,7 +20,7 @@ import Heist.Interpreted (Splice, textSplice, addTemplate
 import Snap.Snaplet.Heist
 import Snap.Snaplet.Auth
 import "mtl" Control.Monad.Trans
-import Control.Monad.Trans.Either
+import "either" Control.Monad.Trans.Either
 import Text.XmlHtml hiding (render)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Text (Text)
@@ -51,6 +51,7 @@ import Splice.HeaderFile
 import Splice.Blob
 import Splice.User
 import Splice.File
+import Splice.Site
 import Helpers.Forms
 import Helpers.Misc
 import Helpers.Text
@@ -104,6 +105,7 @@ manageSiteHandler = do
                 ,("/header/delete/:id", deleteHeaderHandler site)
                 ,("/user/new", newUserHandler site)
                 ,("/user/edit/:id", editUserHandler site)
+                ,("/user/delete/:id", deleteUserHandler site)
                 ,("/blob/new", newBlobHandler site)
                 ,("/blob/edit/:id", editBlobHandler site)
                 ,("/file/new", newFileHandler site)
@@ -168,7 +170,7 @@ editGenHandler site getter form tmpl updt = do
         Just obj -> do
           r <- runForm "edit-gen" $ form (Just obj)
           case r of
-            (v, Nothing) -> renderWithSplices tmpl (digestiveSplices v)
+            (v, Nothing) -> renderWithSplices tmpl (digestiveSplices v <> ("site" ## runChildrenWith (siteSplices site)) <> ("user-id" ## textSplice (tshow id')))
             (_, Just x) -> do
               updt x
               redirect (sitePath site)
@@ -279,6 +281,15 @@ editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" 
                                case mn of
                                  Nothing -> return Nothing
                                  Just n -> return (Just (UserData n ""))
+
+deleteUserHandler :: Site -> AppHandler ()
+deleteUserHandler site = deleteGenHandler site
+                                          (\id' site ->
+                                             do p <- getParam "permanent"
+                                                deleteSiteUser site id'
+                                                case p of
+                                                  Nothing -> return ()
+                                                  Just _ -> deleteUser id')
 
 fileForm :: Site -> Maybe File -> Form Text AppHandler File
 fileForm site f = mkFile <$> "name" .: (T.toLower <$> noSpaces (nonEmpty (text (fmap fileName f))))
@@ -498,23 +509,23 @@ fileSplice site = do
        Nothing -> return []
        Just file -> return [TextNode (T.append "/files" (filePath file))]
 
-siteSplices :: Site ->  Splices (Splice AppHandler)
-siteSplices site = do "rebind" ## rebindSplice
-                      "authlink" ## authLinkSplice
-                      "html" ## htmlImpl
-                      "headers" ## headersSplice site
-                      "blob" ## blobSplice site
-                      "set-blob" ## setBlobSplice site
-                      "is-url" ## isUrlSplice
-                      "prefix-url" ## prefixUrlSplice
-                      "file" ## fileSplice site
-                      bindStrictTag ## bindStrictImpl
+clientSiteSplices :: Site ->  Splices (Splice AppHandler)
+clientSiteSplices site = do "rebind" ## rebindSplice
+                            "authlink" ## authLinkSplice
+                            "html" ## htmlImpl
+                            "headers" ## headersSplice site
+                            "blob" ## blobSplice site
+                            "set-blob" ## setBlobSplice site
+                            "is-url" ## isUrlSplice
+                            "prefix-url" ## prefixUrlSplice
+                            "file" ## fileSplice site
+                            bindStrictTag ## bindStrictImpl
 
 renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = (mconcat $ map (dataSplices s) ds) <> siteSplices s
+  let splices = (mconcat $ map (dataSplices s) ds) <> clientSiteSplices s
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)

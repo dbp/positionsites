@@ -13,7 +13,7 @@ import Snap.Snaplet.Heist
 import Snap.Snaplet.Auth
 import Snap.Util.FileUploads
 import "mtl" Control.Monad.Trans
-import Control.Monad.Trans.Either
+import "either" Control.Monad.Trans.Either
 import Text.XmlHtml hiding (render)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Text (Text)

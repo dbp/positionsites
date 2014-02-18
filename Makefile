@@ -21,6 +21,7 @@ send: send-static
 
 send-static:
 	rsync --checksum -avz -e ssh static/* $(USER)@$(SERVER):static
+	rsync --checksum -avz -e ssh markdown/* $(USER)@$(SERVER):markdown
 	rsync --checksum -avz -e ssh snaplets/* $(USER)@$(SERVER):snaplets
 
 start:

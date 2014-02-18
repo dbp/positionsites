@@ -24,10 +24,12 @@ import           Network.HTTP.Conduit (Manager, newManager, closeManager, condui
 import           Application
 import           Routes (routes)
 import           Helpers.Text
+import           Handler.Site (rebindSplice)
 
 serverSplices :: Splices (Splice AppHandler)
 serverSplices = do "server-port" ## serverPortSplice
                    "psInput" ## psInputSplice
+                   "rebind" ## rebindSplice
 
 serverPortSplice :: Splice AppHandler
 serverPortSplice = do
