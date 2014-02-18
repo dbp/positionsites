@@ -35,8 +35,7 @@ deleteSiteUser :: Site -> Int -> AppHandler ()
 deleteSiteUser site i = void $ execute "delete from users_sites where user_id = ? and site_id = ?" (i, siteId site)
 
 deleteUser :: Int -> AppHandler ()
-deleteUser i = void $ do execute "delete from users where id = ?" (Only i)
-                         execute "delete from snap_auth_user where uid = ?" (Only i)
+deleteUser i = void $ execute "delete from snap_auth_user where uid = ?" (Only i)
 
 
 instance FromRow Text where

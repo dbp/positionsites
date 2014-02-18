@@ -286,9 +286,8 @@ deleteUserHandler :: Site -> AppHandler ()
 deleteUserHandler site = deleteGenHandler site
                                           (\id' site ->
                                              do p <- getParam "permanent"
-                                                deleteSiteUser site id'
                                                 case p of
-                                                  Nothing -> return ()
+                                                  Nothing -> deleteSiteUser site id'
                                                   Just _ -> deleteUser id')
 
 fileForm :: Site -> Maybe File -> Form Text AppHandler File
