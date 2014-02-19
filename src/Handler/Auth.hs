@@ -33,10 +33,13 @@ userForm u = UserData
   <$> "username" .: (T.toLower <$> nonEmpty (text (fmap udLogin u)))
   <*> "password" .: passwordForm
 
-editUserForm :: Formlet Text AppHandler UserData
-editUserForm u = UserData
-  <$> "username" .: (T.toLower <$> nonEmpty (text (fmap udLogin u)))
+data EditUserData = EditUserData {eudU :: Text, eudP :: Text, eudA :: Bool}
+
+editUserForm :: Formlet Text AppHandler EditUserData
+editUserForm u = EditUserData
+  <$> "username" .: (T.toLower <$> nonEmpty (text (fmap eudU u)))
   <*> "password" .: text Nothing
+  <*> "admin"    .: bool (fmap eudA u)
 
 loginHandler :: AppHandler ()
 loginHandler = do

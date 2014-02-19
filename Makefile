@@ -2,10 +2,10 @@ USER = host
 SERVER = direct.positionsites.com
 
 all:
-	cabal install -fdevelopment && ./dist/build/positionsites/positionsites
+	cabal install -fdevelopment && ./.cabal-sandbox/bin/positionsites
 
 run:
-	./dist/build/positionsites/positionsites
+	./.cabal-sandbox/bin/positionsites
 
 deploy: send
 	ssh $(USER)@$(SERVER) "/var/www/scripts/deploy.sh"
@@ -17,7 +17,7 @@ deploy-static: send-static
 send: send-static
 	cabal install
 	scp angel.conf $(USER)@$(SERVER):
-	scp dist/build/positionsites/positionsites $(USER)@$(SERVER):positionsites-new
+	scp ./.cabal-sandbox/bin/positionsites $(USER)@$(SERVER):positionsites-new
 
 send-static:
 	rsync --checksum -avz -e ssh static/* $(USER)@$(SERVER):static

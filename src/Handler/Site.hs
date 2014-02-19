@@ -263,7 +263,7 @@ newUserHandler site = newGenHandler site (userForm Nothing) "user/new" $
 
 editUserHandler :: Site -> AppHandler ()
 editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" $
-  \(UserData login p) ->
+  \(EditUserData login p admn) ->
     do mid <- getParam "id"
        case bsId mid of
          Nothing -> redirect (sitePath site)
@@ -276,11 +276,12 @@ editUserHandler site = editGenHandler site getUserData editUserForm "user/edit" 
                                    "" -> return au
                                    _ -> liftIO $ setPassword au (encodeUtf8 p)
                   with auth $ saveUser newau { userLogin = login }
+                  updateUser (SiteUser id' (siteId site) admn)
                   redirect (sitePath site)
-  where getUserData id' _ = do mn <- getUserNameById id'
+  where getUserData id' _ = do mn <- getUserAndNameById id'
                                case mn of
                                  Nothing -> return Nothing
-                                 Just n -> return (Just (UserData n ""))
+                                 Just (su, n) -> return (Just (EditUserData n "" (siteUserAdmin su)))
 
 deleteUserHandler :: Site -> AppHandler ()
 deleteUserHandler site = deleteGenHandler site

@@ -37,6 +37,8 @@ deleteSiteUser site i = void $ execute "delete from users_sites where user_id = 
 deleteUser :: Int -> AppHandler ()
 deleteUser i = void $ execute "delete from snap_auth_user where uid = ?" (Only i)
 
+updateUser :: SiteUser -> AppHandler ()
+updateUser u = void $ execute "update users set admin = ? where id = ?" (siteUserAdmin u, siteUserId u)
 
 instance FromRow Text where
   fromRow = field
