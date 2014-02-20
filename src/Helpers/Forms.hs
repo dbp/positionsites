@@ -51,6 +51,12 @@ jsonMapForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict e) of
                                 Just m -> Success m)
               nonEmptyTextForm
 
+fieldSpecForm :: Form Text AppHandler FieldSpec
+fieldSpecForm = validate (\e -> case decode (LT.encodeUtf8 $ LT.fromStrict $ T.concat ["[", e, "]"]) of
+                                  Nothing -> Error "Not a valid field spec (remember quotes)."
+                                  Just m -> Success (head m))
+                nonEmptyTextForm
+
 fieldsForm :: Site -> [(Text, FieldSpec)] -> Form Text AppHandler [(Text, FieldData)]
 fieldsForm site = sequenceA . map (($ Nothing) . uncurry (fieldForm site))
 

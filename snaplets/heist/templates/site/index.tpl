@@ -88,7 +88,7 @@
         <table class="section-table">
           <tr>
             <td class="name">Definition</td>
-            <td><textarea class='fields-textarea'><fields/></textarea></td>
+            <td><textarea class='fields-textarea'><fields/></textarea><a href="/site/${site_id}/data/${id}/add">+field</a></td>
           </tr>
           <tr>
             <td class="name">Items</td>

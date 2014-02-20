@@ -98,6 +98,7 @@ manageSiteHandler = do
           route [("", ifTop $ showSiteHandler site)
                 ,("/edit", editSiteHandler site)
                 ,("/data/new", newDataHandler site)
+                ,("/data/:id/add", addDataFieldHandler site)
                 ,("/page/new", newPageHandler site)
                 ,("/page/edit/:id", editPageHandler site)
                 ,("/header/new", newHeaderHandler site)
@@ -192,6 +193,29 @@ newDataForm = (,) <$> "name"   .: nonEmptyTextForm
 newDataHandler :: Site -> AppHandler ()
 newDataHandler site = newGenHandler site newDataForm "data/new" $
   \(name, fields) -> void $ newData (Data (-1) (siteId site) name fields)
+
+addDataFieldForm :: Form Text AppHandler (Text, FieldSpec)
+addDataFieldForm = (,) <$> "name" .: nonEmptyTextForm
+                       <*> "type" .: fieldSpecForm
+
+addDataFieldHandler :: Site -> AppHandler ()
+addDataFieldHandler site = do
+  mid <- getParam "id"
+  case bsId mid of
+    Nothing -> pass
+    Just id' -> do
+      md <- getDataById site id'
+      case md of
+        Nothing -> pass
+        Just d -> do
+          newGenHandler site addDataFieldForm "data/add_field" $
+           \(name, typ) ->
+             do items <- getItems d
+                mapM_ updateItem (map (\i -> i { itemFields = insert name
+                                                                     (defaultField typ)
+                                                                     (itemFields i)})
+                                      items)
+                updateData (d { dataFields = insert name typ (dataFields d)})
 
 pageForm :: Site -> Maybe Page -> Form Text AppHandler Page
 pageForm site p = mkPg <$> "flat" .: nonEmpty (text $ fmap (decodeUtf8 . pageFlat) p)

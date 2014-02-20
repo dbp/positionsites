@@ -105,11 +105,13 @@ $(deriveJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier 
 
 defaultFields :: Data -> Map Text FieldData
 defaultFields dat = M.map defaultField (dataFields dat)
- where defaultField StringFieldSpec = StringFieldData ""
-       defaultField NumberFieldSpec = NumberFieldData 0
-       defaultField ImageFieldSpec = ImageFieldData (-1)
-       defaultField (ListFieldSpec _) = ListFieldData []
-       defaultField (DataFieldSpec _) = DataFieldData Nothing
+
+defaultField StringFieldSpec = StringFieldData ""
+defaultField NumberFieldSpec = NumberFieldData 0
+defaultField ImageFieldSpec = ImageFieldData (-1)
+defaultField (ListFieldSpec _) = ListFieldData []
+defaultField (DataFieldSpec _) = DataFieldData Nothing
+
 
 renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
@@ -180,6 +182,9 @@ itemCount d = numberQuery "select count(*) from items where data_id = ? and site
 
 newData :: Data -> AppHandler (Maybe Int)
 newData d = idQuery "insert into data (site_id, name, fields) values (?,?,?) returning id" (dataSiteId d, dataName d, encode (dataFields d))
+
+updateData :: Data -> AppHandler ()
+updateData d = void $ execute "update data set site_id = ?, name = ?, fields = ? where id = ?" (dataSiteId d, dataName d, encode (dataFields d), dataId d)
 
 getItemById :: Site -> Int -> AppHandler (Maybe Item)
 getItemById site i = singleQuery "select id, data_id, site_id, owner_id, fields from items where id = ? and site_id = ?" (i, siteId site)
