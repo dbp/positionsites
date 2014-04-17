@@ -87,7 +87,7 @@ newSiteHandler = do
 
 manageSiteHandler :: AppHandler ()
 manageSiteHandler = do
-  mid <- getParam "id"
+  mid <- getParam "site_id"
   case fmap B8.unpack mid >>= readSafe of
     Nothing -> pass
     Just id' -> do

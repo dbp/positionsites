@@ -53,7 +53,7 @@ managementRoutes = [("/login", loginHandler)
                    ,("/signup", signupHandler)
                    ,("/", ifTop indexHandler)
                    ,("/new", requireAdmin newSiteHandler)
-                   ,("/site/:id", requireAdmin manageSiteHandler)
+                   ,("/site/:site_id", requireAdmin manageSiteHandler)
                    ,("/docs", handleDocs)
                    ]
 

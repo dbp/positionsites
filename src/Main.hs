@@ -22,6 +22,7 @@ import           Snap.Http.Server
 import           Snap.Snaplet
 import           Snap.Snaplet.Config
 import           Snap.Core
+import           System.Environment (lookupEnv)
 import           System.IO
 import           Site
 
@@ -31,6 +32,7 @@ import           Snap.Loader.Dynamic
 import           Snap.Loader.Static
 #endif
 
+import           Helpers.Misc
 
 ------------------------------------------------------------------------------
 -- | This is the entry point for this web server application. It supports
@@ -75,8 +77,11 @@ main = do
     (conf, site, cleanup) <- $(loadSnapTH [| getConf |]
                                           'getActions
                                           ["snaplets/heist/templates"])
-
-    _ <- try $ httpServe conf site :: IO (Either SomeException ())
+    portS <- lookupEnv "PORT"
+    let conf' = case portS >>= readSafe  of
+                  Nothing -> conf
+                  Just p -> setPort p conf
+    _ <- try $ httpServe conf' site :: IO (Either SomeException ())
     cleanup
 
 
