@@ -37,7 +37,7 @@ migrate:
 keter-build:
 	cabal install -j
 	cp .cabal-sandbox/bin/positionsites positionsites
-	tar czfv positionsites.keter positionsites config production.cfg static snaplets log/_blank
+	tar czfv positionsites.keter positionsites config production.cfg static snaplets markdown log/_blank
 
 keter-deploy:
 	scp positionsites.keter dbp@$(SERVER):/opt/keter/incoming
