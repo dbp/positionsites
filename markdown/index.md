@@ -166,4 +166,8 @@ This is a very simplistic permissions system, but that should be a theme you've 
 
 ## Pages
 
-TODO
+Pages have URLs and bodies. There are two different URLs - a flat URL and a structured URL. For basic pages, like the index, these can be the same. For the index, they would both be "/". For an "about" page, they would both be "/about" (note leading slash).
+
+For some pages, however, it's important for the page to vary based on the URL. There are many ways this could happen, but right now Position Sites only supports one: wanting to be able to have a page for a single data element. In this case, we want the URL to contain a way of identifying the element. At this time, this can only be it's numeric id. To support this, the flat URL should have ":something" as one segment, for example: `/store/:item_id`, and the structured URL should have `id(item)` in the same position, where `item` is the name of the data type. In the future, other fields could substitute for `id`, and there may be other patterns (like pagination).
+
+Once you've set that as the URL, you can access the bound data element with the tag `this-item`, where `item` is the name of the data type. If the ID does not correspond to a valid element of that type, the page will 404. You can have multiple `id(foo)` segments in the URL, but there can only be one for each data type. This is a somewhat arbitrary decision as we haven't settled on what the naming should be (`this-foo` does not work if there are two `foos` on the page).
