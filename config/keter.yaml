@@ -1,0 +1,11 @@
+exec: ../positionsites
+args:
+    - -e
+    - production
+host: "*.*"
+extra-hosts:
+    - "*.*.*"
+postgres: false
+redirects:
+    - from: abingdonsquarepainters.com
+      to: www.abingdonsquarepainters.com
