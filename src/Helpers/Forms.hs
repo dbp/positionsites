@@ -22,7 +22,8 @@ import Application
 import Helpers.Text
 import State.User (SiteUser)
 import State.Site (Site)
-import State.Data (Item(..), FieldSpec(..), FieldData, parseSpec, renderFieldData, shortName)
+import State.Data (Item(..), FieldSpec(..), FieldData, parseSpec, renderFieldData,
+                   boolFieldData, shortName)
 
 runForm' :: MonadSnap m	 => Text -> Form v m a -> m (View v, Maybe a)
 runForm' = runFormWith (defaultSnapFormConfig { uploadPolicy = setMaximumFormInputSize tenmegs defaultUploadPolicy
@@ -70,6 +71,8 @@ fieldForm site n spec d = n .: validateM (\f -> do r <- parseSpec site spec f
                                                      Just f -> return (Success (n, f)))
                                           (case spec of
                                              ImageFieldSpec -> imageForm
+                                             BoolFieldSpec -> validate (Success . tshow) $
+                                               bool (fmap boolFieldData d)
                                              _ -> text (fmap renderFieldData d))
 
 

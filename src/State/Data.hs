@@ -47,6 +47,7 @@ instance FromRow Data where
 
 data FieldSpec = StringFieldSpec
                | NumberFieldSpec
+               | BoolFieldSpec
                | ImageFieldSpec
                | ListFieldSpec FieldSpec
                | DataFieldSpec Text
@@ -54,6 +55,7 @@ data FieldSpec = StringFieldSpec
 
 instance FromJSON FieldSpec where
      parseJSON (String "number") = return NumberFieldSpec
+     parseJSON (String "bool") = return BoolFieldSpec
      parseJSON (String "string") = return StringFieldSpec
      parseJSON (String "image") = return ImageFieldSpec
      parseJSON (Array arr)       = if V.length arr == 1
@@ -65,6 +67,7 @@ instance FromJSON FieldSpec where
 
 instance ToJSON FieldSpec where
      toJSON NumberFieldSpec = String "number"
+     toJSON BoolFieldSpec = String "bool"
      toJSON StringFieldSpec = String "string"
      toJSON ImageFieldSpec = String "image"
      toJSON (ListFieldSpec sp) = Array (V.fromList [toJSON sp])
@@ -80,6 +83,7 @@ instance FromField (Map Text FieldSpec) where
 fieldToBs :: FieldSpec -> ByteString
 fieldToBs StringFieldSpec = "string"
 fieldToBs NumberFieldSpec = "number"
+fieldToBs BoolFieldSpec = "bool"
 fieldToBs ImageFieldSpec = "image"
 
 instance ToField [FieldSpec] where
@@ -89,6 +93,7 @@ instance ToField [FieldSpec] where
 parseSpec :: Site -> FieldSpec -> Text -> AppHandler (Maybe FieldData)
 parseSpec _ StringFieldSpec s = return $ Just $ StringFieldData s
 parseSpec _ NumberFieldSpec s = return $ fmap NumberFieldData (readSafe (unpack s))
+parseSpec _ BoolFieldSpec s = return $ fmap BoolFieldData (readSafe (unpack s))
 parseSpec site ImageFieldSpec i = do
   im <- storeImage site i
   return $ Just $ ImageFieldData (imageId im)
@@ -97,6 +102,7 @@ parseSpec _ (DataFieldSpec _) s = return $ Just $ DataFieldData Nothing
 
 data FieldData = StringFieldData Text
                | NumberFieldData Int
+               | BoolFieldData Bool
                | ImageFieldData Int
                | ListFieldData [FieldData]
                | DataFieldData (Maybe Int)
@@ -108,6 +114,7 @@ defaultFields dat = M.map defaultField (dataFields dat)
 
 defaultField StringFieldSpec = StringFieldData ""
 defaultField NumberFieldSpec = NumberFieldData 0
+defaultField BoolFieldSpec = BoolFieldData False
 defaultField ImageFieldSpec = ImageFieldData (-1)
 defaultField (ListFieldSpec _) = ListFieldData []
 defaultField (DataFieldSpec _) = DataFieldData Nothing
@@ -116,9 +123,15 @@ defaultField (DataFieldSpec _) = DataFieldData Nothing
 renderFieldData :: FieldData -> Text
 renderFieldData (StringFieldData s) = s
 renderFieldData (NumberFieldData n) = tshow n
+renderFieldData (BoolFieldData True) = "true"
+renderFieldData (BoolFieldData False) = "false"
 renderFieldData (ImageFieldData id') = tshow id'
 renderFieldData (ListFieldData elems) = T.concat $ ["["] ++ [T.intercalate ", " (map renderFieldData elems)] ++ ["]"]
 renderFieldData (DataFieldData mid) = T.concat ["data(", maybe "" tshow mid, ")"]
+
+boolFieldData :: FieldData -> Bool
+boolFieldData (BoolFieldData b) = b
+boolFieldData _ = False
 
 modifyListFieldElems :: FieldData -> ([FieldData] -> [FieldData]) -> FieldData
 modifyListFieldElems (ListFieldData elems) f = ListFieldData (f elems)
@@ -158,6 +171,8 @@ shortName item = T.intercalate " " (map formatShort (M.elems ifs))
   where ifs = itemFields item
         formatShort (StringFieldData s) = s
         formatShort (NumberFieldData n) = tshow n
+        formatShort (BoolFieldData True) = "true"
+        formatShort (BoolFieldData False) = "false"
         formatShort _ = ""
 
 -- Lookup functions

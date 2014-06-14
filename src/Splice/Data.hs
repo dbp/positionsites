@@ -95,6 +95,9 @@ fieldsSplice (n, StringFieldSpec) = do
 fieldsSplice (n, NumberFieldSpec) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "text"
+fieldsSplice (n, BoolFieldSpec) = do
+  "field-ref" ## textSplice n
+  "field-type" ## textSplice "checkbox"
 fieldsSplice (n, ImageFieldSpec) = do
   "field-ref" ## textSplice n
   "field-type" ## textSplice "file"
@@ -112,9 +115,15 @@ apiDataFieldSplice (StringFieldData s) name = do
 apiDataFieldSplice (NumberFieldData n) name = do
   "field-name" ## textSplice name
   "field-input" ## inputTextSplice "value" (Just (tshow n))
+apiDataFieldSplice (BoolFieldData b) name = do
+  "field-name" ## textSplice name
+  "field-input" ## inputCheckboxSplice "value" (Just b)
 
 inputTextSplice :: Text -> Maybe Text -> Splice AppHandler
 inputTextSplice n mt = return [X.Element "input" [("type", "text"), ("name", n), ("value", fromMaybe "" mt)] []]
+
+inputCheckboxSplice :: Text -> Maybe Bool -> Splice AppHandler
+inputCheckboxSplice n mb = return [X.Element "input" ([("type", "checkbox"), ("name", n)] ++ (maybe [] (\v -> if v then [("checked", "checked")] else []) mb)) []]
 
 inputNullSplice :: Text -> Splice AppHandler
 inputNullSplice n = return [X.Element "input" [("type", "text"), ("disabled", "1"), ("value", "[set later]")] [], X.Element "input" [("type", "hidden"), ("name", n), ("value", "[]")] []]
@@ -166,6 +175,9 @@ fldSplice :: FieldSpec -> Site -> Data -> Item -> Text -> Maybe FieldData -> Spl
 fldSplice _ _ _ _ _ Nothing = textSplice ""
 fldSplice _ _ _ _ _ (Just (StringFieldData s)) = return (newlineReplace s)
 fldSplice _ _ _ _ _ (Just (NumberFieldData n)) = textSplice (tshow n)
+fldSplice _ _ _ _ _ (Just (BoolFieldData b)) = runChildrenWith $ do "true" ## ifISplice b
+                                                                    "false" ## ifISplice (not b)
+fldSplice _ _ _ _ _ (Just (BoolFieldData False)) = textSplice "false"
 fldSplice _ _ _ _ _ (Just (ImageFieldData id')) = imageSplice id'
 fldSplice (ListFieldSpec (DataFieldSpec nm)) s d i n (Just (ListFieldData ls)) =
   let len = length ls

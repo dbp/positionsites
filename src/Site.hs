@@ -47,6 +47,9 @@ psInputSplice = do n <- getParamNode
                      Just ("text", ref) ->  return [X.Element "dfInputTextArea"
                                                               [("ref", ref)]
                                                               []]
+                     Just ("checkbox", ref) ->  return [X.Element "dfInputCheckbox"
+                                                                 [("ref", ref)]
+                                                                 []]
                      Just ("list", ref) -> return [X.TextNode "Add elements later."
                                                   ,X.Element "dfInputHidden"
                                                                    [("ref", ref)]
