@@ -8,7 +8,7 @@
     <div class="section">
       <sites>
         <div class="section-elem">
-          <div class="section-name"><a href="/site/${id}"><domain/></a></div>
+          <div class="section-name"><a href="/site/${id}"><domains><url/>;</domains></a></div>
         </div>
       </sites>
     </div>

@@ -10,28 +10,37 @@ import Application
 import Helpers.State
 
 data Site = Site { siteId :: Int
-                 , siteUrl :: Text
                  , siteBase :: Text
                  , siteAnalyzeToken :: Maybe Text
                  }
 
 instance FromRow Site where
-  fromRow = Site <$> field <*> field <*> field <*> field
+  fromRow = Site <$> field <*> field <*> field
 
 newSite :: Site -> AppHandler (Maybe Int)
-newSite (Site _ url base token) = idQuery "insert into sites (url, site_base, analyze_token) values (?, ?, ?) returning id" (url, base, token)
+newSite (Site _ base token) = idQuery "insert into sites (site_base, analyze_token) values (?, ?) returning id" (base, token)
 
 getSiteByName :: Text -> AppHandler (Maybe Site)
-getSiteByName name = singleQuery "select id, url, site_base, analyze_token from sites where url = ?" (Only name)
+getSiteByName name = singleQuery "select S.id, S.site_base, S.analyze_token from sites as S join site_urls as U on U.site_id = S.id where U.url = ?" (Only name)
 
 getSiteById :: Int -> AppHandler (Maybe Site)
-getSiteById id' = singleQuery "select id, url, site_base, analyze_token from sites where id = ?" (Only id')
+getSiteById id' = singleQuery "select id, site_base, analyze_token from sites where id = ?" (Only id')
 
 getSites :: AppHandler [Site]
-getSites = query_ "select id, url, site_base, analyze_token from sites"
+getSites = query_ "select id, site_base, analyze_token from sites"
 
 getUserSites :: Int -> AppHandler [Site]
-getUserSites i = query "select id, url, site_base, analyze_token from sites join users_sites on site_id = id where user_id = ?" (Only i)
+getUserSites i = query "select id, site_base, analyze_token from sites as S join users_sites as US on US.site_id = S.id where US.user_id = ?" (Only i)
 
 updateSite :: Site -> AppHandler ()
-updateSite (Site id' url base token) = void $ execute "update sites set url = ?, site_base = ?, analyze_token = ? where id = ?" (url, base, token, id')
+updateSite (Site id' base token) = void $ execute "update sites set site_base = ?, analyze_token = ? where id = ?" (base, token, id')
+
+
+getSiteUrls :: Site -> AppHandler [(Int, Text)]
+getSiteUrls (Site id' _ _) = query "select id, url from site_urls where site_id = ?" (Only id')
+
+newDomain :: Site -> Text -> AppHandler ()
+newDomain site url = void $ execute "insert into site_urls (site_id, url) values (?,?)" (siteId site, url)
+
+deleteDomain :: Int -> Site -> AppHandler ()
+deleteDomain id' site = void $ execute "delete from site_urls where site_id = ? and id = ?" (siteId site, id')

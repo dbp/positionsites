@@ -21,9 +21,9 @@
     });
   </script>
 
-  <h1 class="title">Dashboard for domain <domain/>.</h1>
+  <h1 class="title">Dashboard for domain <domains><url/>;</domains>.</h1>
 
-  <h3 class="section-heading">Domain and Template (<a href="/site/${site_id}/edit">edit</a>)</h3>
+  <h3 class="section-heading">Domains and Template (<a href="/site/${site_id}/edit">edit</a>)</h3>
 
   <h3 class="section-heading">Users (<a href="/site/${site_id}/user/new">add</a>)</h3>
   <div class="section">

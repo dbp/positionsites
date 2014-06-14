@@ -60,30 +60,29 @@ import Handler.API
 import Handler.Auth
 
 sitePath :: Site -> ByteString
-sitePath (Site id' _ _ _) = B.append "/site/" (B8.pack (show id'))
+sitePath (Site id' _ _) = B.append "/site/" (B8.pack (show id'))
 
 
-siteForm :: Maybe Site -> Form Text AppHandler (Text, Text, Text)
-siteForm old = (,,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old)))
-                    <*> "domain" .: nonEmpty (text (fmap siteUrl old))
-                    <*> "token" .: text (siteAnalyzeToken =<< old)
+siteForm :: Maybe Site -> Form Text AppHandler (Text, Text)
+siteForm old = (,) <$> "base" .: validateHtml (nonEmpty (text (fmap siteBase old)))
+                   <*> "token" .: text (siteAnalyzeToken =<< old)
 
 renderError :: AppHandler ()
 renderError = render "error"
 
 newSiteHandler :: AppHandler ()
 newSiteHandler = do
-  r <- runForm "new-site" (siteForm (Just (Site (-1) "" "<authlink/>\n\n<apply-content/>" Nothing)))
+  r <- runForm "new-site" (siteForm (Just (Site (-1) "<authlink/>\n\n<apply-content/>" Nothing)))
   case r of
     (v, Nothing) -> renderWithSplices "site/new" (digestiveSplices v)
-    (_, Just (base, url, token)) -> do
-      mid <- newSite (Site (-1) url base (if token == "" then Nothing else Just token))
+    (_, Just (base, token)) -> do
+      mid <- newSite (Site (-1) base (if token == "" then Nothing else Just token))
       case mid of
         Nothing -> error "Site could not be created"
         Just site_id -> do
           user <- fmap fromJust $ with auth currentUser
           newSiteUser (SiteUser ((read . T.unpack . unUid . fromJust . userId) user) site_id False)
-          redirect (sitePath (Site site_id "" "" Nothing))
+          redirect (sitePath (Site site_id "" Nothing))
 
 manageSiteHandler :: AppHandler ()
 manageSiteHandler = do
@@ -97,6 +96,8 @@ manageSiteHandler = do
         Just site ->
           route [("", ifTop $ showSiteHandler site)
                 ,("/edit", editSiteHandler site)
+                ,("/domain/new", newDomainHandler site)
+                ,("/domain/:id/delete", deleteDomainHandler site)
                 ,("/data/new", newDataHandler site)
                 ,("/data/:id/add", addDataFieldHandler site)
                 ,("/page/new", newPageHandler site)
@@ -123,7 +124,7 @@ showSiteHandler site = do
   files <- getSiteFiles site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
-    "domain" ## textSplice (siteUrl site)
+    "domains" ## domainsSplice site
     "users" ## manageUsersSplice users
     "data" ## manageDataSplice ds
     "pages" ## managePagesSplice pgs
@@ -135,10 +136,10 @@ editSiteHandler :: Site -> AppHandler ()
 editSiteHandler site = do
   r <- runForm "edit-base" (siteForm (Just site))
   case r of
-    (v, Nothing) -> renderWithSplices "site/edit" (digestiveSplices v)
-    (_, Just (base, domain, token)) -> do
-      updateSite (site { siteBase = base, siteUrl = domain
-                       , siteAnalyzeToken = if token == "" then Nothing else Just token })
+    (v, Nothing) -> renderWithSplices "site/edit" (digestiveSplices v <> siteSplices site)
+    (_, Just (base, token)) -> do
+      updateSite (site { siteBase = base,
+                         siteAnalyzeToken = if token == "" then Nothing else Just token })
       redirect (sitePath site)
 
 newGenHandler :: Site
@@ -185,6 +186,17 @@ deleteGenHandler site dlt = do
     Nothing -> pass
     Just id' -> do dlt id' site
                    redirect (sitePath site)
+
+newDomainForm :: Form Text AppHandler Text
+newDomainForm =
+  "url" .: checkM "Domain already in use." (\d -> isNothing <$> getSiteByName d) nonEmptyTextForm
+
+newDomainHandler :: Site -> AppHandler ()
+newDomainHandler site = newGenHandler site newDomainForm "domain/new" (newDomain site)
+
+deleteDomainHandler :: Site -> AppHandler ()
+deleteDomainHandler site = deleteGenHandler site deleteDomain
+
 
 newDataForm :: Form Text AppHandler (Text, Map Text FieldSpec)
 newDataForm = (,) <$> "name"   .: nonEmptyTextForm

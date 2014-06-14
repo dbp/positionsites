@@ -24,5 +24,12 @@ sitesSplice = mapSplices (runChildrenWith . siteSplices)
 siteSplices :: Site -> Splices (Splice AppHandler)
 siteSplices s = do
   "id" ## textSplice (tshow (siteId s))
-  "domain" ## textSplice (siteUrl s)
+  "site_id" ## textSplice (tshow (siteId s))
+  "domains" ## domainsSplice s
   "base" ## textSplice (siteBase s)
+
+domainsSplice :: Site -> Splice AppHandler
+domainsSplice s =
+  do urls <- lift $ getSiteUrls s
+     mapSplices (runChildrenWith . (\u -> do "url_id" ## textSplice (tshow (fst u))
+                                             "url" ## textSplice (snd u))) urls

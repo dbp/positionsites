@@ -1,0 +1,25 @@
+Description: Allow sites to live on multiple urls
+Created: 2014-06-14 16:32:04.71577 UTC
+Depends: 2014-02-06-add-analyze_token_to_sites 2014-01-21-add_site_base 2014-01-13-base_schema
+Apply:
+  CREATE TABLE site_urls (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    url TEXT NOT NULL
+    );
+
+  CREATE INDEX site_urls_url ON site_urls(url);
+
+  INSERT INTO site_urls (site_id, url)
+              (select id as site_id, url from sites where url is not null);
+
+  ALTER TABLE sites DROP COLUMN url;
+
+Revert:
+  ALTER TABLE sites ADD COLUMN url TEXT NOT NULL DEFAULT md5(random()::text);
+
+  UPDATE sites SET url = S.url
+  FROM (select url, site_id from site_urls) as S
+  WHERE id = S.site_id;
+
+  DROP TABLE site_urls;

@@ -49,7 +49,7 @@
   <hr/>
 
   <site>
-    <a onclick="return confirm('Are you sure?')" href="/site/${id}/user/delete/${user-id}">Remove from <domain/></a>
+    <a onclick="return confirm('Are you sure?')" href="/site/${id}/user/delete/${user-id}">Remove from <domains><url/>;</domains></a>
     <br/>
     <a onclick="return confirm('Are you sure?')" href="/site/${id}/user/delete/${user-id}?permanent">Remove from all of Position Sites</a>
   </site>

@@ -16,17 +16,7 @@
     <dfForm method="post">
       <table class="editor">
         <tr>
-          <td><dfLabel ref="domain">Domain</dfLabel></td>
-          <td><dfInputText ref="domain" size="20" /></td>
-        </tr>
-        <dfIfChildErrors ref="domain">
-          <tr>
-            <td></td><td><dfErrorList ref="domain" /></td>
-          </tr>
-        </dfIfChildErrors>
-
-        <tr>
-          <td><dfLabel ref="token">Analyze Token</dfLabel></td>
+          <td class="name"><dfLabel ref="token">Analyze Token</dfLabel></td>
           <td><dfInputText ref="token" size="20" /></td>
         </tr>
         <dfIfChildErrors ref="token">
@@ -50,5 +40,20 @@
         </tr>
       </table>
     </dfForm>
+
+    <table>
+      <tr>
+        <td class="name">Domains</td>
+        <td>
+          <ul>
+            <li><a href="/site/${site_id}/domain/new">new</a></li>
+            <domains>
+              <li><url/> <a onclick="return confirm('Are you sure?');" href="/site/${site_id}/domain/${url_id}/delete">delete</a></li>
+            </domains>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
   </div>
 </div>
