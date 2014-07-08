@@ -139,15 +139,19 @@ data SortOrder = ASC | DESC deriving (Eq, Show, Read)
 renderAllItems :: Site -> Data -> Splice AppHandler
 renderAllItems s d = do
   sort <- fmap (lookup "sort" . X.elementAttrs) getParamNode
+  limit <- fmap (lookup "limit" . X.elementAttrs) getParamNode
   items <- lift $ getItems d
   let sorted = case sort of
                  Nothing -> items
                  Just s -> case T.splitOn ":" s  of
                              (f:[]) -> sortItems f DESC items
                              (f:o:[]) -> sortItems f (read (T.unpack o)) items
-  mapSplices (runChildrenWith . itemSplices s d) sorted
-  where sortItems fld DESC = sortBy (comparing ((M.! fld) . itemFields))
-        sortItems fld ASC = sortBy (flip (comparing ((M.! fld) . itemFields)))
+  let limited = case limit >>= treadSafe of
+                  Nothing -> sorted
+                  Just l -> take l sorted
+  mapSplices (runChildrenWith . itemSplices s d) limited
+  where sortItems fld DESC = sortBy (flip (comparing ((M.! fld) . itemFields)))
+        sortItems fld ASC = sortBy (comparing ((M.! fld) . itemFields))
 
 itemSplices :: Site -> Data -> Item
             -> Splices (Splice AppHandler)

@@ -124,6 +124,8 @@ showSiteHandler site = do
   files <- getSiteFiles site
   renderWithSplices "site/index" $ do
     "site_id" ## textSplice (tshow (siteId site))
+    "domain" ## do domains <- map snd <$> lift (getSiteUrls site)
+                   textSplice (fromMaybe "" (listToMaybe domains))
     "domains" ## domainsSplice site
     "users" ## manageUsersSplice users
     "data" ## manageDataSplice ds

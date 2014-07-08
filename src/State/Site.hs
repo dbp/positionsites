@@ -37,7 +37,7 @@ updateSite (Site id' base token) = void $ execute "update sites set site_base = 
 
 
 getSiteUrls :: Site -> AppHandler [(Int, Text)]
-getSiteUrls (Site id' _ _) = query "select id, url from site_urls where site_id = ?" (Only id')
+getSiteUrls (Site id' _ _) = query "select id, url from site_urls where site_id = ? order by id desc" (Only id')
 
 newDomain :: Site -> Text -> AppHandler ()
 newDomain site url = void $ execute "insert into site_urls (site_id, url) values (?,?)" (siteId site, url)

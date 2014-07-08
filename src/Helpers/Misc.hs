@@ -28,6 +28,9 @@ readSafe = fmap fst . listToMaybe . reads
 breadSafe :: Read a => ByteString -> Maybe a
 breadSafe = readSafe . unpack
 
+treadSafe :: Read a => Text -> Maybe a
+treadSafe = readSafe . T.unpack
+
 kvs :: (Ord k, Ord v) => Map k v -> [(k, v)]
 kvs = sort . assocs
 
