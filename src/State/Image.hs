@@ -70,11 +70,14 @@ getImageSizePath im w h =
 
 fixSizes :: Int -> Int -> Int -> Int -> (Int, Int)
 fixSizes origw origh desirw desirh =
-  if rat > 1
-     then (desirw, floor $ fI desirw * (1 / rat))
-     else (floor $ fI desirh * rat, desirh)
+  -- NOTE(dbp 2014-07-09): This is somewhat tricky. We want to use desire as a
+  -- bounding box for an image with the correct ratio as orig.
+  if ratDesir < ratOrig -- means desir is too tall, so width is bound
+     then (desirw, floor $ fI desirw * (1 / ratOrig))
+     else (floor $ fI desirh * ratOrig, desirh)
   where fI = fromIntegral
-        rat = fI origw / fI origh
+        ratOrig = fI origw / fI origh
+        ratDesir = fI desirw / fI desirh
 
 newImage :: Int -> AppHandler (Maybe Image)
 newImage site_id = singleQuery "insert into images (site_id, extension, formats, original_width, original_height) values (?, '', '[]', -1, -1) returning id, site_id, salt, extension, formats, original_width, original_height" (Only site_id)
