@@ -1,0 +1,13 @@
+resolver: lts-3.10
+
+packages:
+- '.'
+
+extra-deps:
+- analyze-client-0.1.0.2
+- digestive-functors-heist-0.8.6.2
+- digestive-functors-snap-0.6.1.3
+- snap-loader-static-0.9.0.2
+- snaplet-postgresql-simple-0.6.0.4
+- sundown-0.6
+- resource-pool-catchio-0.2.1.0

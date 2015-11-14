@@ -23,16 +23,16 @@ Executable positionsites
   main-is: Main.hs
 
   Build-depends:
-    bytestring                >= 0.9.1   && < 0.11,
-    heist                     >= 0.13    && < 0.14,
-    MonadCatchIO-transformers >= 0.2.1   && < 0.4,
-    mtl                       >= 2       && < 3,
-    snap                      >= 0.13    && < 0.14,
-    snap-core                 >= 0.9     && < 0.11,
-    snap-server               >= 0.9     && < 0.11,
-    snap-loader-static        >= 0.9     && < 0.10,
-    text                      >= 0.11    && < 1.2,
-    time                      >= 1.1     && < 1.5,
+    bytestring                >= 0.9.1,
+    heist                     >= 0.13,
+    MonadCatchIO-transformers >= 0.2.1,
+    mtl                       >= 2   ,
+    snap                      >= 0.13,
+    snap-core                 >= 0.9 ,
+    snap-server               >= 0.9 ,
+    snap-loader-static        >= 0.9 ,
+    text                      >= 0.11,
+    time                      >= 1.1 ,
     xmlhtml                   >= 0.1,
     postgresql-simple,
     snaplet-postgresql-simple,
@@ -46,10 +46,6 @@ Executable positionsites
     digestive-functors-heist,
     configurator,
     gd,
-    -- the next three are because the current combination on hackage is broken
-    http-client == 0.2.0.3,
-    http-client-tls == 0.2.0.2,
-    connection < 0.2,
     analyze-client,
     http-conduit,
     directory,
@@ -57,12 +53,12 @@ Executable positionsites
 
   if flag(old-base)
     build-depends:
-      base                      >= 4        && < 4.4,
-      lens                      >= 3.7.6    && < 3.8
+      base                      >= 4 ,
+      lens                      >= 3.7.6
   else
     build-depends:
       base                      >= 4.4      && < 5,
-      lens                      >= 3.7.6    && < 3.11
+      lens                      >= 3.7.6
 
   if flag(development)
     build-depends:

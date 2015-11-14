@@ -3,28 +3,30 @@
 module Site
   ( app ) where
 
-
-import           Control.Monad.Trans
 import           Control.Applicative
-import           Data.ByteString (ByteString)
-import qualified Data.Text as T
+import           Control.Lens
+import           Control.Monad.Trans
+import           Data.ByteString                             (ByteString)
 import           Data.Monoid
+import qualified Data.Text                                   as T
+import           Heist
+import           Heist.Interpreted
+import           Network.HTTP.Conduit                        (Manager,
+                                                              closeManager, conduitManagerSettings,
+                                                              newManager)
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
-import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Heist
+import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Session.Backends.CookieSession
-import qualified Text.XmlHtml as X
-import           Heist
-import           Heist.Interpreted
-import           Network.HTTP.Conduit (Manager, newManager, closeManager, conduitManagerSettings)
+import qualified Text.XmlHtml                                as X
 
 import           Application
-import           Routes (routes)
+import           Handler.Site                                (rebindSplice)
 import           Helpers.Text
-import           Handler.Site (rebindSplice)
+import           Routes                                      (routes)
 
 serverSplices :: Splices (Splice AppHandler)
 serverSplices = do "server-port" ## serverPortSplice
@@ -67,12 +69,11 @@ psInputSplice = do n <- getParamNode
 
 app :: SnapletInit App App
 app = makeSnaplet "app" "An data-driven CMS." Nothing $ do
-    let defaultHeistConfig = mempty {
-        hcLoadTimeSplices = defaultLoadTimeSplices
-      , hcInterpretedSplices = serverSplices
-      }
+    let appHeistConfig = set hcLoadTimeSplices defaultLoadTimeSplices $
+                         set hcInterpretedSplices serverSplices $
+                         emptyHeistConfig
     h <- nestSnaplet "" heist $
-         heistInit' "templates" defaultHeistConfig
+         heistInit' "templates" appHeistConfig
     s <- nestSnaplet "sess" sess $
           initCookieSessionManager "site_key.txt" "sess"
           (Just 3600)

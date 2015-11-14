@@ -1,9 +1,3 @@
-dist
-*~
-moo.sh
-moo_test.sh
-site_key.txt
-.hsenv
 *.cfg
 *.log
 pg.sh
@@ -11,3 +5,4 @@ pg_test.sh
 #*
 .#*
 *#
+.stack-work

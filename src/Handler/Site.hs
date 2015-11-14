@@ -1,63 +1,68 @@
-{-# LANGUAGE OverloadedStrings, PackageImports, TupleSections  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports    #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Handler.Site where
 
-import Prelude hiding (lookup)
-import qualified Prelude as L (lookup)
-import Control.Applicative hiding (empty)
-import Data.Map (Map, assocs, fromList, lookup, insert, (!), empty)
-import Data.Monoid
-import Data.Maybe
-import Data.List (intersperse)
-import Snap.Core
-import Snap.Snaplet
-import Snap.Util.FileServe
-import Heist
-import Heist.Splices.Html
-import Heist.Interpreted (Splice, textSplice, addTemplate
-                         ,renderTemplate, bindSplices, bindSplice
-                         ,runChildrenWith, lookupSplice)
-import Snap.Snaplet.Heist
-import Snap.Snaplet.Auth
-import "mtl" Control.Monad.Trans
-import "either" Control.Monad.Trans.Either
-import Text.XmlHtml hiding (render)
-import Data.Text.Encoding (encodeUtf8, decodeUtf8)
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString as B
-import Text.Digestive
-import Text.Digestive.Snap hiding (method)
-import Text.Digestive.Heist
-import Heist.Splices.BindStrict
-import Web.Analyze.Client
-import Network.HTTP.Conduit (Manager)
-import Snap.Util.FileUploads
+import           Control.Applicative        hiding (empty)
+import           Control.Lens               (set)
+import           "mtl" Control.Monad.Trans
+import           "either" Control.Monad.Trans.Either
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as B
+import qualified Data.ByteString.Char8      as B8
+import           Data.List                  (intersperse)
+import           Data.Map                   (Map, assocs, empty, fromList,
+                                             insert, lookup, (!))
+import           Data.Maybe
+import           Data.Monoid
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
+import           Heist
+import           Heist.Interpreted          (Splice, addTemplate, bindSplice,
+                                             bindSplices, lookupSplice,
+                                             renderTemplate, runChildrenWith,
+                                             textSplice)
+import           Heist.Splices.BindStrict
+import           Heist.Splices.Html
+import           Network.HTTP.Conduit       (Manager)
+import           Prelude                    hiding (lookup)
+import qualified Prelude                    as L (lookup)
+import           Snap.Core
+import           Snap.Snaplet
+import           Snap.Snaplet.Auth
+import           Snap.Snaplet.Heist
+import           Snap.Util.FileServe
+import           Snap.Util.FileUploads
+import           Text.Digestive
+import           Text.Digestive.Heist
+import           Text.Digestive.Snap        hiding (method)
+import           Text.XmlHtml               hiding (render)
+import           Web.Analyze.Client
 
-import Application
-import State.Site
-import State.Page
-import State.Data
-import State.Image
-import State.User
-import State.HeaderFile
-import State.Blob
-import State.File
-import Splice.Data
-import Splice.Page
-import Splice.HeaderFile
-import Splice.Blob
-import Splice.User
-import Splice.File
-import Splice.Site
-import Helpers.Forms
-import Helpers.Misc
-import Helpers.Text
-import Helpers.State
-import Handler.API
-import Handler.Auth
+import           Application
+import           Handler.API
+import           Handler.Auth
+import           Helpers.Forms
+import           Helpers.Misc
+import           Helpers.State
+import           Helpers.Text
+import           Splice.Blob
+import           Splice.Data
+import           Splice.File
+import           Splice.HeaderFile
+import           Splice.Page
+import           Splice.Site
+import           Splice.User
+import           State.Blob
+import           State.Data
+import           State.File
+import           State.HeaderFile
+import           State.Image
+import           State.Page
+import           State.Site
+import           State.User
 
 sitePath :: Site -> ByteString
 sitePath (Site id' _ _) = B.append "/site/" (B8.pack (show id'))
@@ -563,15 +568,13 @@ renderPage :: Site -> Page -> AppHandler ()
 renderPage s p = do
   urlDataSplices <- fmap mconcat (mapM (loadData s) (zip (T.splitOn "/" (decodeUtf8 (pageFlat p))) (T.splitOn "/" (pageStructured p))))
   ds <- getSiteData s
-  let splices = (mconcat $ map (dataSplices s) ds) <> clientSiteSplices s
+  let splices = mconcat (map (dataSplices s) ds) <> clientSiteSplices s
   modifyResponse (setContentType "text/html")
   case parseHTML "" (encodeUtf8 $ pageBody p) of
     Left err -> error (show err)
     Right html -> do
       st <- fmap (either (error.show) id) $
-        liftIO $ runEitherT $ initHeist $ mempty { hcTemplateLocations =
-                                                   [loadTemplates "snaplets/heist/templates/sites"]
-                                                 }
+        liftIO $ runEitherT $ initHeist $ set hcTemplateLocations [loadTemplates "snaplets/heist/templates/sites"] emptyHeistConfig
       let newst = addTemplate "site_base" (docContent
                   (fromRight (parseHTML "" (encodeUtf8 $ siteBase s)))) Nothing st
       let newst' = addTemplate "page" [Element "apply" [("template", "site")] (docContent html)]
